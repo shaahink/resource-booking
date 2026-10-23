@@ -65,8 +65,10 @@ models and the TypeScript models.
   express the constraint that makes the guarantee real.
 - **Demo "login as" picker instead of passwords/SSO.** Reviewers click straight in, but
   every endpoint still enforces roles server-side from the auth cookie — a user hitting
-  an admin endpoint gets a 403 (integration-tested). Swapping the picker for real
-  credentials touches one controller and one component.
+  an admin endpoint gets a 403 (integration-tested). Each request re-checks the cookie
+  against the user row, so disabling or demoting someone takes effect immediately; the
+  picker serves no emails, and the paid AI endpoints are rate-limited per client. Swapping
+  the picker for real credentials touches one controller and one component.
 - **Hand-rolled availability grid, no calendar library.** The grid *is* the product
   here; owning it keeps the bundle small and every line explainable.
 - **Signals + standalone components** on the front; strict TypeScript with no `any`;
@@ -152,17 +154,23 @@ caveats are noted in the file (15-minute spin-down, 30-day database expiry).
 
 ## Testing
 
-- **42 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
-  exact-capacity fit, one-unit-over, past bookings vs the running slot, DST transition
-  day, closed days, malformed constraint params disabling only themselves) and the
-  assistant's planner.
-- **13 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
-  the concurrency race, cancellation + notification, past-booking rejection, duplicate
-  email → 409, availability, dashboard, AI 503s.
-- **11 frontend tests** — the grid slot math and closed-cell logic (mirroring the
-  server's strict overlap and opening-hours semantics) and component creation.
+- **86 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
+  exact-capacity fit, one-unit-over, pooled capacity measured at its peak rather than
+  summed, past and backdated bookings vs the running slot, DST transition day, closed
+  days, midnight close, malformed constraint params disabling only themselves), the one
+  constraint-params reader, the assistant's planner and the `DATABASE_URL` conversion.
+- **28 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
+  live session revalidation, both concurrency races (exclusive, and pooled — the one that
+  proves the advisory lock), cancellation + notification, past-booking rejection,
+  duplicate email → 409, range and constraint validation, availability across UTC
+  offsets, dashboard, AI 503s and rate limiting.
+- **23 frontend tests** — the grid slot math and closed-cell logic (mirroring the
+  server's strict overlap, peak capacity and opening-hours semantics), the constraint
+  editor's lossless round trip, the 401 interceptor and component creation.
 - CI (GitHub Actions) runs format, build, both test suites and lint on every push —
-  the same gates the agent had to satisfy during development (see below).
+  the same gates the agent had to satisfy during development (see below). The build
+  treats warnings as errors under the SDK's recommended analyzers plus Meziantou and
+  Sonar, which catch culture-sensitive parsing and under-posted request fields.
 
 ## How it was built
 
