@@ -1,3 +1,4 @@
+using Api.Ai;
 using Api.Contracts;
 using Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -12,7 +13,8 @@ public class AdminController(
     IResourceService resources,
     IUserService users,
     IBookingService bookings,
-    IStatsService stats) : ControllerBase
+    IStatsService stats,
+    IInsightsService insights) : ControllerBase
 {
     // ── resources ──
 
@@ -57,4 +59,7 @@ public class AdminController(
     [HttpGet("stats/dashboard")]
     public Task<DashboardDto> GetDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
         stats.GetDashboardAsync(from, to);
+
+    [HttpGet("stats/summary")]
+    public Task<InsightsSummaryDto> GetSummary() => insights.GetSummaryAsync();
 }

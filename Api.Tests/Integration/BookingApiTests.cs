@@ -169,6 +169,19 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Ai_endpoints_return_503_when_no_key_is_configured()
+    {
+        // CI and the test factory run keyless by design: the AI features must degrade, not break.
+        var tom = await factory.CreateClientForAsync(TomId);
+        var parse = await tom.PostAsJsonAsync("/api/assistant/parse-booking", new { text = "book a room" }, Json);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, parse.StatusCode);
+
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var summary = await admin.GetAsync("/api/admin/stats/summary");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, summary.StatusCode);
+    }
+
+    [Fact]
     public async Task Dashboard_reports_utilisation_for_all_resources()
     {
         var admin = await factory.CreateClientForAsync(AdminId);

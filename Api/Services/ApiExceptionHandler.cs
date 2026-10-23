@@ -1,3 +1,4 @@
+using Api.Ai;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
@@ -28,6 +29,11 @@ public class ApiExceptionHandler : IExceptionHandler
             {
                 Title = denied.Message,
                 Status = StatusCodes.Status403Forbidden,
+            },
+            AiNotConfiguredException absent => new ProblemDetails
+            {
+                Title = absent.Message,
+                Status = StatusCodes.Status503ServiceUnavailable,
             },
             _ => null,
         };
