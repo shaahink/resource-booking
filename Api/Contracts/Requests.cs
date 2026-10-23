@@ -25,3 +25,6 @@ public record SaveUserRequest(string Name, string Email, UserRole Role, bool IsA
 public record CreateBookingRequest(Guid ResourceId, DateTimeOffset Start, DateTimeOffset End, int Quantity, string? Notes);
 
 public record AssistantParseRequest(string Text);
+
+/// <summary>A half-open [From, To) window from the query string — availability and the dashboard.</summary>
+public record DateRangeQuery(DateTimeOffset From, DateTimeOffset To);

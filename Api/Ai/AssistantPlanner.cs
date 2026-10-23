@@ -1,3 +1,4 @@
+using System.Globalization;
 using Api.Domain;
 
 namespace Api.Ai;
@@ -23,21 +24,29 @@ public static class AssistantPlanner
     private const int DefaultDurationMinutes = 60;
     private const int MinDurationMinutes = 15;
     private const int MaxDurationMinutes = 8 * 60;
+    private const int MaxDaysAhead = 365;
 
     /// <summary>Resolve the requested window in UTC. Defaults when no time is given: a future
     /// date means its morning; today means the next full hour (or tomorrow morning when the
-    /// working day is over). Duration defaults to an hour, clamped to sane bounds.</summary>
-    public static (DateTimeOffset Start, DateTimeOffset End) ResolveWindow(BookingIntent intent, DateTimeOffset now)
+    /// working day is over). Duration defaults to an hour, clamped to sane bounds.
+    /// Null when the model returned a date or time that is not strict ISO, or a date in the
+    /// past or more than a year out — model output is input, and gets validated like it.</summary>
+    public static (DateTimeOffset Start, DateTimeOffset End)? ResolveWindow(BookingIntent intent, DateTimeOffset now)
     {
         var localNow = BusinessTime.ToLocal(now);
         var today = DateOnly.FromDateTime(localNow.DateTime);
 
-        var date = DateOnly.TryParse(intent.Date, out var parsedDate) ? parsedDate : today;
+        var date = today;
+        if (intent.Date is not null
+            && (!DateOnly.TryParseExact(intent.Date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out date)
+                || date < today || date > today.AddDays(MaxDaysAhead)))
+            return null;
 
         TimeOnly time;
-        if (TimeOnly.TryParse(intent.StartTime, out var parsedTime))
+        if (intent.StartTime is not null)
         {
-            time = parsedTime;
+            if (!TimeOnly.TryParseExact(intent.StartTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out time))
+                return null;
         }
         else if (date != today)
         {

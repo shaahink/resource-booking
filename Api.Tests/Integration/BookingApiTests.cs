@@ -16,6 +16,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
 
     private static readonly Guid WorkshopRoomId = Guid.Parse("10000000-0000-0000-0000-000000000004");
     private static readonly Guid BoardroomId = Guid.Parse("10000000-0000-0000-0000-000000000001");
+    private static readonly Guid LunchCateringId = Guid.Parse("10000000-0000-0000-0000-000000000007"); // capacity 40
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -23,14 +24,14 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         Converters = { new JsonStringEnumConverter() },
     };
 
-    /// <summary>A weekday slot at the given London hour, `weeksAhead` weeks out — inside opening hours,
-    /// far from the seeded fortnight. Each test uses its own week to stay independent.</summary>
+    /// <summary>A Tuesday slot at the given London hour, inside opening hours and past the seeded
+    /// bookings — the first Tuesday after them is week 1. Each test uses its own week to stay independent.</summary>
     private static (DateTimeOffset Start, DateTimeOffset End) Slot(int weeksAhead, int hour, int durationMinutes = 60)
     {
         var london = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
-        var day = DateTime.UtcNow.Date;
+        var day = DateTime.UtcNow.Date.AddDays(SeedData.DaysAhead + 1);
         while (day.DayOfWeek != DayOfWeek.Tuesday) day = day.AddDays(1);
-        day = day.AddDays(7 * weeksAhead);
+        day = day.AddDays(7 * (weeksAhead - 1));
         var local = new DateTime(day.Year, day.Month, day.Day, hour, 0, 0, DateTimeKind.Unspecified);
         var start = new DateTimeOffset(local, london.GetUtcOffset(local)).ToUniversalTime();
         return (start, start.AddMinutes(durationMinutes));
@@ -142,6 +143,58 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
 
         var statuses = results.Select(r => r.StatusCode).OrderBy(s => s).ToArray();
         Assert.Equal([HttpStatusCode.Created, HttpStatusCode.Conflict], statuses);
+    }
+
+    [Fact]
+    public async Task Concurrent_pooled_bookings_never_exceed_capacity()
+    {
+        // Lunch Catering seats 40: five parallel requests for 10 each must yield exactly four
+        // successes. Unlike the Boardroom case there is no exclusion constraint behind a pooled
+        // resource, so this is the test that proves the advisory lock itself.
+        var clients = await Task.WhenAll(
+            new[] { TomId, MayaId, TomId, MayaId, AdminId }.Select(factory.CreateClientForAsync));
+        var (start, end) = Slot(weeksAhead: 7, hour: 12);
+
+        var request = new CreateBookingRequest(LunchCateringId, start, end, 10, null);
+        var results = await Task.WhenAll(clients.Select(c => c.PostAsJsonAsync("/api/bookings", request, Json)));
+
+        Assert.Equal(4, results.Count(r => r.StatusCode == HttpStatusCode.Created));
+        Assert.Equal(1, results.Count(r => r.StatusCode == HttpStatusCode.Conflict));
+    }
+
+    [Theory]
+    [InlineData("+01:00")]
+    [InlineData("-05:00")]
+    public async Task Availability_accepts_any_utc_offset(string offset)
+    {
+        var client = await factory.CreateClientForAsync(TomId);
+        var response = await client.GetAsync(
+            $"/api/resources/{WorkshopRoomId}/availability?from={Uri.EscapeDataString($"2026-11-03T08:00:00{offset}")}&to={Uri.EscapeDataString($"2026-11-10T08:00:00{offset}")}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("")]                                                            // missing
+    [InlineData("?from=2026-11-10T00:00:00Z&to=2026-11-03T00:00:00Z")]          // reversed
+    [InlineData("?from=0001-01-01T00:00:00Z&to=9999-12-31T00:00:00Z")]          // unbounded
+    public async Task Dashboard_rejects_a_missing_reversed_or_unbounded_range(string query)
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var response = await admin.GetAsync($"/api/admin/stats/dashboard{query}");
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("""[null]""")]
+    [InlineData("""[{"type":"MaxAdvanceDays","paramsJson":"{"days":3000000}"}]""")]
+    [InlineData("""[{"type":"OpeningHours","paramsJson":"{"days":{"mon":"08:00-18:00"}}"}]""")]
+    public async Task Resource_save_rejects_unusable_constraints(string constraintsJson)
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var body = $$"""{"name":"Probe","type":"Room","capacity":1,"isActive":true,"constraints":{{constraintsJson}}}""";
+        var response = await admin.PostAsync("/api/admin/resources",
+            new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     [Fact]

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Api.Domain;
 
 namespace Api.Services;
@@ -20,13 +19,14 @@ public interface IBookingRules
 /// Structural failures (inverted range, bad quantity) suppress the checks that would be
 /// meaningless on nonsense input; everything else accumulates.
 ///
-/// A malformed ParamsJson disables that one constraint rather than blocking all booking
-/// of the resource — the admin UI validates shapes on entry, and a typo in one rule
-/// should not take the resource offline.
+/// A constraint whose params <see cref="ConstraintParams"/> cannot read is skipped rather
+/// than blocking all booking of the resource — the validator rejects such params on save,
+/// and a bad row from anywhere else should not take the resource offline.
 /// </summary>
 public sealed class BookingRulesService : IBookingRules
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    /// <summary>The grid's slot length: the slot that is currently running stays bookable.</summary>
+    private static readonly TimeSpan SlotLength = TimeSpan.FromMinutes(30);
 
     public IReadOnlyList<RuleViolation> Validate(BookingContext context)
     {
@@ -53,9 +53,7 @@ public sealed class BookingRulesService : IBookingRules
 
         if (!structurallySound) return violations;
 
-        // End, not Start: the half-hour that is currently running stays bookable,
-        // matching the grid's definition of "past" (slot.end <= now).
-        if (context.End <= context.Now)
+        if (context.End <= context.Now || context.Start < CurrentSlotStart(context.Now))
             violations.Add(new(RuleCodes.InThePast, "This time has already passed."));
 
         CheckCapacity(context, violations);
@@ -88,57 +86,66 @@ public sealed class BookingRulesService : IBookingRules
         return violations;
     }
 
+    private static DateTimeOffset CurrentSlotStart(DateTimeOffset now) =>
+        new(now.UtcTicks - (now.UtcTicks % SlotLength.Ticks), TimeSpan.Zero);
+
     private static void CheckCapacity(BookingContext context, List<RuleViolation> violations)
     {
-        // Self-defending re-filter: only confirmed bookings that truly overlap [Start, End).
-        // Back-to-back adjacency (end == next start) is allowed by the strict inequalities.
+        // Self-defending re-filter: only this resource's confirmed bookings that truly overlap
+        // [Start, End). Back-to-back adjacency (end == next start) is allowed by the strict inequalities.
         var overlapping = context.OverlappingConfirmedBookings
-            .Where(b => b.Status == BookingStatus.Confirmed && b.Start < context.End && b.End > context.Start)
+            .Where(b => b.ResourceId == context.Resource.Id && b.Status == BookingStatus.Confirmed && Overlaps(b, context))
             .ToList();
 
-        if (context.Resource.Capacity == 1)
+        var capacity = context.Resource.Capacity;
+        if (capacity == 1)
         {
             if (overlapping.Count > 0)
                 violations.Add(new(RuleCodes.OverlapConflict, "This slot is already booked."));
             return;
         }
 
-        var used = overlapping.Sum(b => b.Quantity);
-        if (used + context.Quantity > context.Resource.Capacity)
+        if (context.Quantity > capacity)
         {
-            var free = Math.Max(0, context.Resource.Capacity - used);
+            violations.Add(new(RuleCodes.CapacityExceeded, $"This resource has {capacity} units in total."));
+            return;
+        }
+
+        var used = PeakUsage(overlapping, b => b.Quantity, context.Start, context.End);
+        if (used + context.Quantity > capacity)
+        {
             violations.Add(new(RuleCodes.CapacityExceeded,
-                $"Only {free} of {context.Resource.Capacity} units are free in this window."));
+                $"Only {capacity - used} of {capacity} units are free in this window."));
         }
     }
 
     private static void CheckMaxDuration(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<MinutesParams>(constraint) is not { } p) return;
-        if ((context.End - context.Start).TotalMinutes > p.Minutes)
+        if (ConstraintParams.Minutes(constraint.ParamsJson) is not { } minutes) return;
+        if ((context.End - context.Start).TotalMinutes > minutes)
             violations.Add(new(RuleCodes.MaxDurationExceeded,
-                $"Bookings on this resource are limited to {p.Minutes} minutes."));
+                $"Bookings on this resource are limited to {minutes} minutes."));
     }
 
     private static void CheckMaxAdvance(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<DaysParams>(constraint) is not { } p) return;
-        if (context.Start > context.Now.AddDays(p.Days))
+        if (ConstraintParams.Days(constraint.ParamsJson) is not { } days) return;
+        if (context.Start > context.Now.AddDays(days))
             violations.Add(new(RuleCodes.TooFarInAdvance,
-                $"This resource can be booked at most {p.Days} days ahead."));
+                $"This resource can be booked at most {days} days ahead."));
     }
 
     private static void CheckMinNotice(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<MinutesParams>(constraint) is not { } p) return;
-        if (context.Start < context.Now.AddMinutes(p.Minutes))
+        if (ConstraintParams.Minutes(constraint.ParamsJson) is not { } minutes) return;
+        if (context.Start < context.Now.AddMinutes(minutes))
             violations.Add(new(RuleCodes.InsufficientNotice,
-                $"This resource needs at least {Describe(p.Minutes)} notice."));
+                $"This resource needs at least {Describe(minutes)} notice."));
     }
 
     private static void CheckOpeningHours(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<OpeningHoursParams>(constraint) is not { Days: not null } p) return;
+        if (ConstraintParams.OpeningHours(constraint.ParamsJson) is not { } days) return;
 
         var localStart = BusinessTime.ToLocal(context.Start);
         var localEnd = BusinessTime.ToLocal(context.End);
@@ -146,86 +153,86 @@ public sealed class BookingRulesService : IBookingRules
         // A booking must sit inside one window of its (local) starting day. Compare the
         // local DateTime, not the DateTimeOffset — the implicit conversion would re-read
         // the wall-clock in the server's zone and break in a UTC container.
-        if (localStart.Date != localEnd.Date && localEnd.DateTime != localStart.Date.AddDays(1))
+        var endsAtMidnight = localEnd.DateTime == localStart.Date.AddDays(1);
+        if (localStart.Date != localEnd.Date && !endsAtMidnight)
         {
             violations.Add(new(RuleCodes.OutsideOpeningHours, "Bookings cannot span multiple days."));
             return;
         }
 
-        var dayKey = localStart.DayOfWeek switch
-        {
-            DayOfWeek.Monday => "mon",
-            DayOfWeek.Tuesday => "tue",
-            DayOfWeek.Wednesday => "wed",
-            DayOfWeek.Thursday => "thu",
-            DayOfWeek.Friday => "fri",
-            DayOfWeek.Saturday => "sat",
-            _ => "sun",
-        };
-
-        var windows = p.Days.TryGetValue(dayKey, out var w) ? w : null;
-        if (windows is null || windows.Count == 0)
+        if (!days.TryGetValue(localStart.DayOfWeek, out var windows) || windows.Count == 0)
         {
             violations.Add(new(RuleCodes.OutsideOpeningHours, "This resource is closed on that day."));
             return;
         }
 
         var startTime = localStart.TimeOfDay;
-        var endTime = localEnd.Date > localStart.Date ? TimeSpan.FromHours(24) : localEnd.TimeOfDay;
-        var fits = windows.Any(window =>
-            window.Count == 2 &&
-            TimeSpan.TryParse(window[0], out var open) &&
-            TimeSpan.TryParse(window[1], out var close) &&
-            startTime >= open && endTime <= close);
-
-        if (!fits)
+        var endTime = endsAtMidnight ? TimeSpan.FromHours(24) : localEnd.TimeOfDay;
+        if (!windows.Any(window => startTime >= window.Open && endTime <= window.Close))
         {
-            var hours = string.Join(", ", windows.Where(w => w.Count == 2).Select(w => $"{w[0]}–{w[1]}"));
+            var hours = string.Join(", ", windows.Select(window =>
+                $"{ConstraintParams.Format(window.Open)}–{ConstraintParams.Format(window.Close)}"));
             violations.Add(new(RuleCodes.OutsideOpeningHours, $"Outside opening hours ({hours})."));
         }
     }
 
     private static void CheckMaxConcurrentPerUser(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<CountParams>(constraint) is not { } p) return;
-        var own = context.OverlappingConfirmedBookings.Count(b =>
+        if (ConstraintParams.Count(constraint.ParamsJson) is not { } count) return;
+        var own = context.OverlappingConfirmedBookings.Where(b =>
+            b.ResourceId == context.Resource.Id &&
             b.Status == BookingStatus.Confirmed &&
             b.UserId == context.User.Id &&
-            b.Start < context.End && b.End > context.Start);
-        if (own + 1 > p.Count)
+            Overlaps(b, context));
+        if (PeakUsage(own, _ => 1, context.Start, context.End) + 1 > count)
             violations.Add(new(RuleCodes.MaxConcurrentPerUser,
-                $"You can hold at most {p.Count} overlapping booking(s) on this resource."));
+                $"You can hold at most {count} overlapping booking(s) on this resource."));
     }
 
     private static void CheckMaxActiveBookings(BookingContext context, ResourceConstraint constraint, List<RuleViolation> violations)
     {
-        if (TryParse<CountParams>(constraint) is not { } p) return;
+        if (ConstraintParams.Count(constraint.ParamsJson) is not { } count) return;
         var upcoming = context.UsersUpcomingConfirmedBookings.Count(b =>
-            b.Status == BookingStatus.Confirmed && b.End > context.Now);
-        if (upcoming + 1 > p.Count)
+            b.ResourceId == context.Resource.Id &&
+            b.Status == BookingStatus.Confirmed &&
+            b.End > context.Now);
+        if (upcoming + 1 > count)
             violations.Add(new(RuleCodes.MaxActiveBookings,
-                $"You can hold at most {p.Count} upcoming booking(s) on this resource."));
+                $"You can hold at most {count} upcoming booking(s) on this resource."));
     }
 
-    private static T? TryParse<T>(ResourceConstraint constraint) where T : class
+    private static bool Overlaps(Booking booking, BookingContext context) =>
+        booking.Start < context.End && booking.End > context.Start;
+
+    /// <summary>
+    /// The most units in use at any one instant of [start, end) — not the sum of every
+    /// booking that touches the window, which would count 9–10 and 10–11 as simultaneous.
+    /// Ends sort before starts at the same instant, so back-to-back bookings never stack.
+    /// </summary>
+    private static int PeakUsage(IEnumerable<Booking> bookings, Func<Booking, int> units, DateTimeOffset start, DateTimeOffset end)
     {
-        try
+        var events = bookings
+            .SelectMany(b => new[]
+            {
+                (At: b.Start > start ? b.Start : start, Delta: units(b)),
+                (At: b.End < end ? b.End : end, Delta: -units(b)),
+            })
+            .OrderBy(e => e.At)
+            .ThenBy(e => e.Delta);
+
+        int current = 0, peak = 0;
+        foreach (var (_, delta) in events)
         {
-            return JsonSerializer.Deserialize<T>(constraint.ParamsJson, JsonOptions);
+            current += delta;
+            peak = Math.Max(peak, current);
         }
-        catch (JsonException)
-        {
-            return null;
-        }
+        return peak;
     }
 
-    private static string Describe(int minutes) =>
-        minutes % 1440 == 0 ? $"{minutes / 1440} day(s)"
-        : minutes % 60 == 0 ? $"{minutes / 60} hour(s)"
-        : $"{minutes} minute(s)";
-
-    private sealed record MinutesParams(int Minutes);
-    private sealed record DaysParams(int Days);
-    private sealed record CountParams(int Count);
-    private sealed record OpeningHoursParams(Dictionary<string, List<List<string>>>? Days);
+    private static string Describe(int minutes)
+    {
+        if (minutes % 1440 == 0) return $"{minutes / 1440} day(s)";
+        if (minutes % 60 == 0) return $"{minutes / 60} hour(s)";
+        return $"{minutes} minute(s)";
+    }
 }

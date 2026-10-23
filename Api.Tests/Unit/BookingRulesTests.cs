@@ -119,9 +119,16 @@ public sealed class BookingRulesTests
     [Fact]
     public void Booking_in_the_currently_running_slot_is_allowed()
     {
-        // Started 15 minutes ago but still running: End > Now, matching the grid's "past" shading.
-        var result = _rules.Validate(Context(start: Now.AddMinutes(-15), end: Now.AddMinutes(15)));
+        // The 09:00 half-hour, booked at 09:20: still running, matching the grid's "past" shading.
+        var result = _rules.Validate(Context(start: Now, end: Now.AddMinutes(30), now: Now.AddMinutes(20)));
         Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Backdated_start_is_rejected_even_when_the_end_is_in_the_future()
+    {
+        var result = _rules.Validate(Context(start: Now.AddDays(-3), end: Now.AddHours(1)));
+        Assert.Equal([RuleCodes.InThePast], Codes(result));
     }
 
     // ── overlap & capacity ──────────────────────────────────────────────
@@ -171,6 +178,44 @@ public sealed class BookingRulesTests
         var result = _rules.Validate(Context(resource: catering, overlapping: [existing], quantity: 11));
         Assert.Equal([RuleCodes.CapacityExceeded], Codes(result));
         Assert.Contains("10 of 40", result.Single().Message);
+    }
+
+    [Fact]
+    public void Pooled_capacity_counts_the_peak_not_the_sum_of_every_overlap()
+    {
+        // 30 portions 11:30–12:30 and 30 more 12:30–13:30: never more than 30 at once,
+        // so 10 more across 12:00–13:00 fits a capacity of 40.
+        var catering = Room(capacity: 40);
+        var early = Existing(catering, Bob, Tomorrow(11.5), Tomorrow(12.5), quantity: 30);
+        var late = Existing(catering, Bob, Tomorrow(12.5), Tomorrow(13.5), quantity: 30);
+
+        var fits = _rules.Validate(Context(resource: catering, start: Tomorrow(12), end: Tomorrow(13),
+            overlapping: [early, late], quantity: 10));
+        Assert.Empty(fits);
+
+        var over = _rules.Validate(Context(resource: catering, start: Tomorrow(12), end: Tomorrow(13),
+            overlapping: [early, late], quantity: 11));
+        Assert.Equal([RuleCodes.CapacityExceeded], Codes(over));
+        Assert.Contains("10 of 40", over.Single().Message);
+    }
+
+    [Fact]
+    public void Pooled_capacity_sums_bookings_that_truly_coincide()
+    {
+        var catering = Room(capacity: 40);
+        var a = Existing(catering, Bob, Tomorrow(10), Tomorrow(12), quantity: 20);
+        var b = Existing(catering, Alice, Tomorrow(11), Tomorrow(13), quantity: 15);
+        var result = _rules.Validate(Context(resource: catering, start: Tomorrow(10), end: Tomorrow(13),
+            overlapping: [a, b], quantity: 6));
+        Assert.Equal([RuleCodes.CapacityExceeded], Codes(result));
+    }
+
+    [Fact]
+    public void Quantity_above_total_capacity_says_so()
+    {
+        var result = _rules.Validate(Context(resource: Room(capacity: 5), quantity: 6));
+        Assert.Equal([RuleCodes.CapacityExceeded], Codes(result));
+        Assert.Contains("5 units in total", result.Single().Message);
     }
 
     // ── typed constraints ───────────────────────────────────────────────
@@ -294,6 +339,48 @@ public sealed class BookingRulesTests
     }
 
     [Fact]
+    public void Max_concurrent_per_user_counts_the_peak_of_own_bookings()
+    {
+        // Alice holds 9–10 and 10–11; a 9–11 booking never makes her hold more than two at once.
+        var catering = Room(capacity: 40);
+        var constraint = Constraint(ConstraintType.MaxConcurrentPerUser, """{"count":2}""");
+        var first = Existing(catering, Alice, Tomorrow(9), Tomorrow(10));
+        var second = Existing(catering, Alice, Tomorrow(10), Tomorrow(11));
+
+        var result = _rules.Validate(Context(resource: catering, start: Tomorrow(9), end: Tomorrow(11),
+            constraints: [constraint], overlapping: [first, second]));
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Opening_hours_closing_at_24_00_allow_a_booking_that_ends_at_midnight()
+    {
+        var result = _rules.Validate(Context(
+            start: Tomorrow(23),
+            end: Tomorrow(24),
+            constraints: [Constraint(ConstraintType.OpeningHours, """{"days":{"tue":[["08:00","24:00"]]}}""")]));
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Opening_hours_day_keys_are_case_insensitive()
+    {
+        var result = _rules.Validate(Context(
+            constraints: [Constraint(ConstraintType.OpeningHours, """{"days":{"Tue":[["08:00","20:00"]]}}""")]));
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Opening_hours_report_every_window_of_a_split_day()
+    {
+        var result = _rules.Validate(Context(
+            start: Tomorrow(12.5),
+            end: Tomorrow(13.5),
+            constraints: [Constraint(ConstraintType.OpeningHours, """{"days":{"tue":[["08:00","13:00"],["14:00","18:00"]]}}""")]));
+        Assert.Equal("Outside opening hours (08:00–13:00, 14:00–18:00).", Assert.Single(result).Message);
+    }
+
+    [Fact]
     public void Max_active_bookings_counts_only_upcoming_confirmed()
     {
         var car = Room();
@@ -346,10 +433,30 @@ public sealed class BookingRulesTests
             constraints:
             [
                 Constraint(ConstraintType.MaxDurationMinutes, "not json at all"),
-                Constraint(ConstraintType.MinNoticeMinutes, """{"minutes":999999}"""),
+                Constraint(ConstraintType.MinNoticeMinutes, """{"minutes":99999}"""),
             ]));
 
         // The broken MaxDuration is skipped; the valid MinNotice still enforces.
         Assert.Equal([RuleCodes.InsufficientNotice], Codes(result));
+    }
+
+    [Theory]
+    [InlineData("{}")]                                      // missing property must not read as 0
+    [InlineData("""{"minutes":null}""")]
+    [InlineData("""{"minutes":0}""")]
+    [InlineData("""{"Minutes":"60"}""")]
+    public void Unreadable_numeric_params_disable_the_rule_instead_of_blocking_everything(string paramsJson)
+    {
+        var result = _rules.Validate(Context(
+            constraints: [Constraint(ConstraintType.MaxDurationMinutes, paramsJson)]));
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Unreadable_opening_hours_disable_the_rule_instead_of_closing_the_resource()
+    {
+        var result = _rules.Validate(Context(
+            constraints: [Constraint(ConstraintType.OpeningHours, """{"days":{"tue":"08:00-18:00"}}""")]));
+        Assert.Empty(result);
     }
 }

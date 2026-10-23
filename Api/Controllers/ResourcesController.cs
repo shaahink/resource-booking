@@ -20,6 +20,6 @@ public sealed class ResourcesController(IResourceService resources) : Controller
     public Task<ResourceResponse> Get(Guid id) => resources.GetAsync(id);
 
     [HttpGet("{id:guid}/availability")]
-    public Task<AvailabilityResponse> GetAvailability(Guid id, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
-        resources.GetAvailabilityAsync(id, from, to, User.GetUserId());
+    public Task<AvailabilityResponse> GetAvailability(Guid id, [FromQuery] DateRangeQuery range) =>
+        resources.GetAvailabilityAsync(id, range.From, range.To, User.GetUserId());
 }

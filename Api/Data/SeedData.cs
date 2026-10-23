@@ -12,6 +12,10 @@ public static class SeedData
 {
     public static readonly Guid AdminId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 
+    /// <summary>The seeded history: 13 days back, and 10 ahead so reviewers can click into next week.</summary>
+    public const int DaysBack = 13;
+    public const int DaysAhead = 10;
+
     public static async Task EnsureSeededAsync(AppDbContext db)
     {
         if (await db.Users.AnyAsync()) return;
@@ -100,7 +104,7 @@ public static class SeedData
         var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, london).Date;
         int[] durations = [30, 60, 60, 90, 120];
 
-        foreach (var dayOffset in Enumerable.Range(-13, 24)) // 13 days back to 10 days ahead — reviewers click into next week
+        foreach (var dayOffset in Enumerable.Range(-DaysBack, DaysBack + DaysAhead + 1))
         {
             var day = today.AddDays(dayOffset);
             if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;

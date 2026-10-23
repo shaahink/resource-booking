@@ -40,6 +40,7 @@ public sealed class ResourceService(AppDbContext db) : IResourceService
 
     public async Task<AvailabilityResponse> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId)
     {
+        (from, to) = (from.ToUniversalTime(), to.ToUniversalTime());
         var resource = await db.Resources.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id)
             ?? throw new KeyNotFoundException("Resource not found.");
 

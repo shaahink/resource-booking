@@ -16,7 +16,7 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `GET /api/auth/me` | user | | `UserResponse` |
 | `GET /api/resources?type=` | user | | `ResourceResponse[]` (active only) |
 | `GET /api/resources/{id}` | user | | `ResourceResponse` |
-| `GET /api/resources/{id}/availability?from=&to=` | user | | `AvailabilityResponse` — raw confirmed bookings in range; the client computes the grid |
+| `GET /api/resources/{id}/availability?from=&to=` | user | | `AvailabilityResponse` — raw confirmed bookings in range; the client computes the grid. 400 unless the range is valid (below) |
 | `POST /api/bookings` | user | `CreateBookingRequest` | 201 `BookingResponse` · 409/422 rule problem |
 | `DELETE /api/bookings/{id}` | owner or admin | | 204; notifies the owner if an admin cancelled |
 | `GET /api/bookings/mine` | user | | `BookingResponse[]` |
@@ -29,10 +29,13 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `POST /api/admin/users` | admin | `SaveUserRequest` | 201 `UserResponse` · 409 duplicate email |
 | `PUT /api/admin/users/{id}` | admin | `SaveUserRequest` | `UserResponse` · 409 duplicate email |
 | `GET /api/admin/bookings?resourceId=&userId=&from=&to=` | admin | | `BookingResponse[]` (history, newest first, capped at 500) |
-| `GET /api/admin/stats/dashboard?from=&to=` | admin | | `DashboardResponse` |
+| `GET /api/admin/stats/dashboard?from=&to=` | admin | | `DashboardResponse`. 400 unless the range is valid (below) |
 | `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest; 503 when no key) |
 | `POST /api/admin/demo/reset` | admin | | 204 — wipes every table and reseeds the demo data |
 | `POST /api/assistant/parse-booking` | user | `{ text }` | `AssistantParseResponse` (503 when no key) |
+
+A `from`/`to` range (`DateRangeQuery`) is half-open `[from, to)`: both are required,
+`to > from`, at most 366 days apart, and any UTC offset is accepted.
 
 Disabling a user (`SaveUserRequest.isActive = false`) keeps their history but removes
 them from the login picker and blocks sign-in; existing bookings are untouched.
@@ -66,28 +69,31 @@ uniqueness conflict (duplicate user email, no `violations` extension);
 `too_far_in_advance` · `insufficient_notice` · `outside_opening_hours` ·
 `max_concurrent_per_user` · `max_active_bookings`
 
-`in_the_past` triggers on `end <= now`, so the currently running half-hour slot is
-still bookable — matching the grid's definition of a past cell.
+`in_the_past` triggers on `end <= now`, or on a start before the current half-hour
+slot began: the slot that is running is still bookable — matching the grid's definition
+of a past cell — but a booking cannot reach back any further.
 
 ## Constraint parameter shapes (`ResourceConstraint.ParamsJson`)
 
 | ConstraintType | params | Meaning |
 | --- | --- | --- |
-| `MaxDurationMinutes` | `{"minutes":120}` | Booking length ≤ minutes |
-| `MaxAdvanceDays` | `{"days":60}` | Start ≤ now + days |
-| `MinNoticeMinutes` | `{"minutes":60}` | Start ≥ now + minutes |
-| `OpeningHours` | `{"days":{"mon":[["08:00","20:00"]],…}}` | Booking fits inside a window on its weekday (Europe/London); absent day = closed |
-| `MaxConcurrentPerUser` | `{"count":1}` | User's overlapping confirmed bookings on this resource < count at any instant |
-| `MaxActiveBookingsPerUser` | `{"count":2}` | User's upcoming confirmed bookings on this resource ≤ count |
+| `MaxDurationMinutes` | `{"minutes":120}` | Booking length ≤ minutes (1–525600) |
+| `MaxAdvanceDays` | `{"days":60}` | Start ≤ now + days (1–3650) |
+| `MinNoticeMinutes` | `{"minutes":60}` | Start ≥ now + minutes (1–525600) |
+| `OpeningHours` | `{"days":{"mon":[["08:00","20:00"]],…}}` | Booking fits inside a window on its weekday (Europe/London); absent day = closed. Keys `mon`…`sun`, any case; times strict `HH:mm`, `"24:00"` = midnight, close > open |
+| `MaxConcurrentPerUser` | `{"count":1}` | User's overlapping confirmed bookings on this resource < count at any instant (1–1000) |
+| `MaxActiveBookingsPerUser` | `{"count":2}` | User's upcoming confirmed bookings on this resource ≤ count (1–1000) |
 
-The admin API validates these shapes on save (400 on mismatch); the rule engine still
-skips anything it cannot parse, so a legacy malformed row disables one rule rather
-than taking the resource offline.
+`Domain/ConstraintParams.cs` is the one reader of these shapes. The admin API rejects
+anything it cannot read on save (400); the rule engine skips it and stats treat it as
+absent, so a legacy malformed row disables one rule rather than taking the resource
+offline. A missing or null number is malformed — it never reads as 0.
 
 ## Semantics the implementation must honour
 
 - Capacity model: rooms/cars have `capacity = 1` (exclusive); catering is pooled —
-  sum of overlapping confirmed quantities ≤ capacity. `Booking.IsExclusive` is
+  at every instant of the booking, the confirmed quantities in use plus the request
+  ≤ capacity (the peak, not the sum of everything that touches the window). `Booking.IsExclusive` is
   denormalised from `capacity == 1` at creation and drives the DB exclusion constraint.
   Capacity edits apply to new bookings; existing rows keep the flag they were created with.
 - Adjacency allowed: a booking may start exactly when another ends.

@@ -50,7 +50,8 @@ public sealed class AssistantService(
         if (!options.IsConfigured) throw new AiNotConfiguredException();
 
         var intent = await ExtractIntentAsync(text);
-        if (intent is null)
+        var now = DateTimeOffset.UtcNow;
+        if (intent is null || AssistantPlanner.ResolveWindow(intent, now) is not (var start, var end))
         {
             return new AssistantParseResponse(
                 "I couldn't read a booking request out of that — try something like “book a room for 6 tomorrow at 14:00”.",
@@ -63,8 +64,6 @@ public sealed class AssistantService(
             .Where(r => r.IsActive)
             .ToListAsync();
 
-        var now = DateTimeOffset.UtcNow;
-        var (start, end) = AssistantPlanner.ResolveWindow(intent, now);
         var candidates = AssistantPlanner.RankCandidates(intent, resources);
 
         var (proposals, firstRejection) = await ProposeAsync(candidates, intent, user, start, end, now);

@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Api.Contracts;
 using Api.Data;
 using Api.Domain;
@@ -20,8 +19,6 @@ public interface IStatsService
 /// </summary>
 public sealed class StatsService(AppDbContext db) : IStatsService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
-
     // The peak-hours chart always spans the grid's visible day, so hours with no bookings
     // render as gaps instead of disappearing from the axis.
     private const int ChartFirstHour = 7;
@@ -34,6 +31,7 @@ public sealed class StatsService(AppDbContext db) : IStatsService
 
     public async Task<DashboardResponse> GetDashboardAsync(DateTimeOffset from, DateTimeOffset to)
     {
+        (from, to) = (from.ToUniversalTime(), to.ToUniversalTime());
         var resources = await db.Resources.AsNoTracking().Include(r => r.Constraints).ToListAsync();
         var bookings = await db.Bookings.AsNoTracking()
             .Where(b => b.Status == BookingStatus.Confirmed && b.Start < to && b.End > from)
@@ -104,7 +102,7 @@ public sealed class StatsService(AppDbContext db) : IStatsService
     /// clipped to the range so short ranges don't over-count whole days.</summary>
     private static double AvailableHours(Resource resource, DateTimeOffset from, DateTimeOffset to)
     {
-        var windows = ParseOpeningHours(resource);
+        var windows = OpeningWindows(resource);
         var localFrom = BusinessTime.ToLocal(from).DateTime;
         var localTo = BusinessTime.ToLocal(to).DateTime;
 
@@ -113,10 +111,10 @@ public sealed class StatsService(AppDbContext db) : IStatsService
         {
             if (!windows.TryGetValue(day.DayOfWeek, out var dayWindows)) continue;
 
-            foreach (var (open, close) in dayWindows)
+            foreach (var window in dayWindows)
             {
-                var start = Max(day + open, localFrom);
-                var end = Min(day + close, localTo);
+                var start = Max(day + window.Open, localFrom);
+                var end = Min(day + window.Close, localTo);
                 if (end > start) total += (end - start).TotalHours;
             }
         }
@@ -126,54 +124,22 @@ public sealed class StatsService(AppDbContext db) : IStatsService
         static DateTime Min(DateTime a, DateTime b) => a < b ? a : b;
     }
 
-    private static Dictionary<DayOfWeek, List<(TimeSpan Open, TimeSpan Close)>> ParseOpeningHours(Resource resource)
+    /// <summary>The resource's opening windows, or a weekday 08:00–18:00 business day when it has
+    /// none — or has one the rule engine would skip as unreadable, so stats and rules agree.</summary>
+    private static IReadOnlyDictionary<DayOfWeek, IReadOnlyList<OpeningWindow>> OpeningWindows(Resource resource)
     {
         var constraint = resource.Constraints.FirstOrDefault(c => c.Type == ConstraintType.OpeningHours);
-        if (constraint is null)
-        {
-            // Default business day for resources with no opening-hours constraint.
-            var businessDay = new List<(TimeSpan, TimeSpan)> { (DefaultOpen, DefaultClose) };
-            return new Dictionary<DayOfWeek, List<(TimeSpan, TimeSpan)>>
-            {
-                [DayOfWeek.Monday] = businessDay,
-                [DayOfWeek.Tuesday] = businessDay,
-                [DayOfWeek.Wednesday] = businessDay,
-                [DayOfWeek.Thursday] = businessDay,
-                [DayOfWeek.Friday] = businessDay,
-            };
-        }
+        if (constraint is not null && ConstraintParams.OpeningHours(constraint.ParamsJson) is { } windows)
+            return windows;
 
-        var result = new Dictionary<DayOfWeek, List<(TimeSpan, TimeSpan)>>();
-        try
+        IReadOnlyList<OpeningWindow> businessDay = [new(DefaultOpen, DefaultClose)];
+        return new Dictionary<DayOfWeek, IReadOnlyList<OpeningWindow>>
         {
-            var parsed = JsonSerializer.Deserialize<OpeningHoursJson>(constraint.ParamsJson, JsonOptions);
-            foreach (var (key, dayWindows) in parsed?.Days ?? [])
-            {
-                var dayOfWeek = key switch
-                {
-                    "mon" => DayOfWeek.Monday,
-                    "tue" => DayOfWeek.Tuesday,
-                    "wed" => DayOfWeek.Wednesday,
-                    "thu" => DayOfWeek.Thursday,
-                    "fri" => DayOfWeek.Friday,
-                    "sat" => DayOfWeek.Saturday,
-                    "sun" => DayOfWeek.Sunday,
-                    _ => (DayOfWeek?)null,
-                };
-                if (dayOfWeek is null) continue;
-
-                result[dayOfWeek.Value] = dayWindows
-                    .Where(w => w.Count == 2)
-                    .Select(w => (TimeSpan.Parse(w[0]), TimeSpan.Parse(w[1])))
-                    .ToList();
-            }
-        }
-        catch (Exception e) when (e is JsonException or FormatException)
-        {
-            // Malformed opening hours → no available time counted; the admin UI validates shapes.
-        }
-        return result;
+            [DayOfWeek.Monday] = businessDay,
+            [DayOfWeek.Tuesday] = businessDay,
+            [DayOfWeek.Wednesday] = businessDay,
+            [DayOfWeek.Thursday] = businessDay,
+            [DayOfWeek.Friday] = businessDay,
+        };
     }
-
-    private sealed record OpeningHoursJson(Dictionary<string, List<List<string>>>? Days);
 }

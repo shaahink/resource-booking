@@ -58,8 +58,8 @@ public sealed class AdminController(
         bookings.GetHistoryAsync(resourceId, userId, from, to);
 
     [HttpGet("stats/dashboard")]
-    public Task<DashboardResponse> GetDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
-        stats.GetDashboardAsync(from, to);
+    public Task<DashboardResponse> GetDashboard([FromQuery] DateRangeQuery range) =>
+        stats.GetDashboardAsync(range.From, range.To);
 
     [HttpGet("stats/summary")]
     public Task<InsightsSummaryResponse> GetSummary() => insights.GetSummaryAsync();

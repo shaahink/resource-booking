@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using Api.Ai;
 using Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -36,6 +37,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.AddDbContext<AppDbContext>(options => options.UseNpgsql(_postgres.GetConnectionString()));
+
+            // Keyless whatever the developer's environment holds: the 503 path is under test.
+            services.RemoveAll<AiOptions>();
+            services.AddSingleton(new AiOptions(ApiKey: null, Model: "gpt-4.1-nano"));
         });
     }
 

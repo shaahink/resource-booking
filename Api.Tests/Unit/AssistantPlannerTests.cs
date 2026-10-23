@@ -17,10 +17,17 @@ public sealed class AssistantPlannerTests
     private static Resource Resource(ResourceType type, int capacity = 1, int? seats = null, string name = "R", bool active = true) =>
         new() { Id = Guid.NewGuid(), Name = name, Type = type, Capacity = capacity, Seats = seats, IsActive = active };
 
+    private static (DateTimeOffset Start, DateTimeOffset End) Window(BookingIntent intent, DateTimeOffset now)
+    {
+        var window = AssistantPlanner.ResolveWindow(intent, now);
+        Assert.NotNull(window);
+        return window.Value;
+    }
+
     [Fact]
     public void Explicit_date_and_time_resolve_to_london_local()
     {
-        var (start, end) = AssistantPlanner.ResolveWindow(
+        var (start, end) = Window(
             Intent(date: "2026-10-20", startTime: "14:00", duration: 90), Now);
 
         Assert.Equal(DateTimeOffset.Parse("2026-10-20T13:00:00Z"), start); // 14:00 BST == 13:00 UTC
@@ -30,7 +37,7 @@ public sealed class AssistantPlannerTests
     [Fact]
     public void Missing_time_defaults_to_the_next_full_hour_today()
     {
-        var (start, _) = AssistantPlanner.ResolveWindow(Intent(), Now);
+        var (start, _) = Window(Intent(), Now);
         Assert.Equal(DateTimeOffset.Parse("2026-10-19T09:00:00Z"), start); // 10:00 London
     }
 
@@ -38,7 +45,7 @@ public sealed class AssistantPlannerTests
     public void Late_in_the_day_rolls_to_tomorrow_morning()
     {
         var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z"); // 19:30 London
-        var (start, _) = AssistantPlanner.ResolveWindow(Intent(), evening);
+        var (start, _) = Window(Intent(), evening);
         Assert.Equal(DateTimeOffset.Parse("2026-10-20T08:00:00Z"), start); // tomorrow 09:00 London
     }
 
@@ -47,15 +54,25 @@ public sealed class AssistantPlannerTests
     {
         // "book a room on Wednesday", asked Monday evening: Wednesday 09:00, not 20:00.
         var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z");
-        var (start, _) = AssistantPlanner.ResolveWindow(Intent(date: "2026-10-21"), evening);
+        var (start, _) = Window(Intent(date: "2026-10-21"), evening);
         Assert.Equal(DateTimeOffset.Parse("2026-10-21T08:00:00Z"), start); // 09:00 London
     }
 
     [Fact]
     public void Duration_is_clamped_to_sane_bounds()
     {
-        var (start, end) = AssistantPlanner.ResolveWindow(Intent(duration: 10_000), Now);
+        var (start, end) = Window(Intent(duration: 10_000), Now);
         Assert.Equal(8 * 60, (end - start).TotalMinutes);
+    }
+
+    [Theory]
+    [InlineData("9999-12-31", null)]   // past the one-year horizon (would overflow AddMinutes)
+    [InlineData("2026-10-18", null)]   // yesterday
+    [InlineData("20/10/2026", null)]   // not ISO
+    [InlineData("2026-10-20", "2pm")]  // time not HH:mm
+    public void Unusable_model_dates_and_times_resolve_to_no_window(string date, string? startTime)
+    {
+        Assert.Null(AssistantPlanner.ResolveWindow(Intent(date: date, startTime: startTime), Now));
     }
 
     [Fact]

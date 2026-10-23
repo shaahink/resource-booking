@@ -1,5 +1,3 @@
-using System.Text.Json;
-using Api.Contracts;
 using Api.Domain;
 using FluentValidation;
 
@@ -34,41 +32,29 @@ public sealed class SaveResourceRequestValidator : AbstractValidator<SaveResourc
         RuleFor(x => x.Seats).InclusiveBetween(1, 10_000).When(x => x.Seats is not null);
         RuleFor(x => x.Location).MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.Type).IsInEnum();
+        RuleFor(x => x.Constraints).NotNull();
         RuleForEach(x => x.Constraints)
-            .Must(MatchTheShapeForTheirType)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .Must(c => Enum.IsDefined(c.Type) && ConstraintParams.IsValid(c.Type, c.ParamsJson))
             .WithMessage("Constraint parameters do not match the constraint type — docs/contracts.md lists the shapes.");
     }
+}
 
-    /// <summary>The typed shapes from docs/contracts.md, enforced at the boundary. A wrong-shaped
-    /// constraint would otherwise silently neuter a rule (the engine skips what it cannot parse).</summary>
-    private static bool MatchTheShapeForTheirType(SaveConstraintRequest constraint)
+public sealed class DateRangeQueryValidator : AbstractValidator<DateRangeQuery>
+{
+    private const int MaxRangeDays = 366;
+
+    public DateRangeQueryValidator()
     {
-        try
-        {
-            using var doc = JsonDocument.Parse(constraint.ParamsJson);
-            var root = doc.RootElement;
-            if (root.ValueKind != JsonValueKind.Object) return false;
-
-            return constraint.Type switch
-            {
-                ConstraintType.MaxDurationMinutes or ConstraintType.MinNoticeMinutes => HasPositiveInt(root, "minutes"),
-                ConstraintType.MaxAdvanceDays => HasPositiveInt(root, "days"),
-                ConstraintType.MaxConcurrentPerUser or ConstraintType.MaxActiveBookingsPerUser => HasPositiveInt(root, "count"),
-                ConstraintType.OpeningHours => root.TryGetProperty("days", out var days) && days.ValueKind == JsonValueKind.Object,
-                _ => false,
-            };
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
+        RuleFor(x => x.From).NotEmpty();
+        RuleFor(x => x.To)
+            .NotEmpty()
+            .GreaterThan(x => x.From).WithMessage("'to' must be after 'from'.")
+            .Must((range, to) => to - range.From <= TimeSpan.FromDays(MaxRangeDays))
+            .WithMessage($"A range covers at most {MaxRangeDays} days.");
     }
-
-    private static bool HasPositiveInt(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var value)
-        && value.ValueKind == JsonValueKind.Number
-        && value.TryGetInt32(out var number)
-        && number >= 1;
 }
 
 public sealed class SaveUserRequestValidator : AbstractValidator<SaveUserRequest>
@@ -77,6 +63,7 @@ public sealed class SaveUserRequestValidator : AbstractValidator<SaveUserRequest
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
+        RuleFor(x => x.Role).IsInEnum();
     }
 }
 

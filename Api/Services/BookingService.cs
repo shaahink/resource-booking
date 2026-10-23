@@ -135,6 +135,7 @@ public sealed class BookingService(
     public async Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(
         Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to)
     {
+        (from, to) = (from?.ToUniversalTime(), to?.ToUniversalTime());
         var query = db.Bookings.AsNoTracking();
         if (resourceId is not null) query = query.Where(b => b.ResourceId == resourceId);
         if (userId is not null) query = query.Where(b => b.UserId == userId);
