@@ -23,6 +23,10 @@ services:
         sync: false
       - key: PORT
         value: "8080"
+      # Render terminates TLS; trust its X-Forwarded-Proto/For so the app sees https and the
+      # client's address (the AI rate limit partitions on it).
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
 
 databases:
   - name: bookable-db

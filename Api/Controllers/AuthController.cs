@@ -20,11 +20,11 @@ public sealed class AuthController(AppDbContext db) : ControllerBase
 {
     /// <summary>The login screen's user picker. Disabled users cannot sign in, so they are not offered.</summary>
     [HttpGet("users")]
-    public async Task<IReadOnlyList<UserResponse>> GetUsers() =>
+    public async Task<IReadOnlyList<LoginOptionResponse>> GetUsers() =>
         await db.Users.AsNoTracking()
             .Where(u => u.IsActive)
             .OrderBy(u => u.Name)
-            .Select(u => new UserResponse(u.Id, u.Name, u.Email, u.Role, u.IsActive, u.CreatedOn))
+            .Select(u => new LoginOptionResponse(u.Id, u.Name, u.Role))
             .ToListAsync();
 
     [HttpPost("login")]

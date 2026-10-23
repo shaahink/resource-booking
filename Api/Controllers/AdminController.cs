@@ -1,8 +1,10 @@
 using Api.Ai;
 using Api.Contracts;
 using Api.Services;
+using Api.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Api.Controllers;
 
@@ -62,6 +64,7 @@ public sealed class AdminController(
         stats.GetDashboardAsync(range.From, range.To);
 
     [HttpGet("stats/summary")]
+    [EnableRateLimiting(RateLimitPolicies.Ai)]
     public Task<InsightsSummaryResponse> GetSummary() => insights.GetSummaryAsync();
 
     // ── demo ──

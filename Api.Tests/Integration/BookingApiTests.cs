@@ -198,6 +198,62 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task A_disabled_users_existing_session_stops_working()
+    {
+        var sofiaId = Guid.Parse("00000000-0000-0000-0000-000000000005");
+        var sofia = await factory.CreateClientForAsync(sofiaId);
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var (start, end) = Slot(weeksAhead: 8, hour: 10);
+
+        await admin.PutAsJsonAsync($"/api/admin/users/{sofiaId}",
+            new SaveUserRequest("Sofia Rossi", "sofia@demo.local", Api.Domain.UserRole.User, IsActive: false), Json);
+        try
+        {
+            var response = await sofia.PostAsJsonAsync("/api/bookings",
+                new CreateBookingRequest(WorkshopRoomId, start, end, 1, null), Json);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        }
+        finally
+        {
+            await admin.PutAsJsonAsync($"/api/admin/users/{sofiaId}",
+                new SaveUserRequest("Sofia Rossi", "sofia@demo.local", Api.Domain.UserRole.User, IsActive: true), Json);
+        }
+    }
+
+    [Fact]
+    public async Task A_demoted_admin_loses_the_admin_endpoints_immediately()
+    {
+        var jonasId = Guid.Parse("00000000-0000-0000-0000-000000000004");
+        var admin = await factory.CreateClientForAsync(AdminId);
+        await admin.PutAsJsonAsync($"/api/admin/users/{jonasId}",
+            new SaveUserRequest("Jonas Weber", "jonas@demo.local", Api.Domain.UserRole.Admin, IsActive: true), Json);
+        var jonas = await factory.CreateClientForAsync(jonasId);
+        Assert.Equal(HttpStatusCode.OK, (await jonas.GetAsync("/api/admin/users")).StatusCode);
+
+        await admin.PutAsJsonAsync($"/api/admin/users/{jonasId}",
+            new SaveUserRequest("Jonas Weber", "jonas@demo.local", Api.Domain.UserRole.User, IsActive: true), Json);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await jonas.GetAsync("/api/admin/users")).StatusCode);
+    }
+
+    [Fact]
+    public async Task The_login_picker_does_not_expose_emails()
+    {
+        var anonymous = factory.CreateClient();
+        var body = await anonymous.GetStringAsync("/api/auth/users");
+        Assert.Contains("Priya Sharma", body);
+        Assert.DoesNotContain("@", body);
+    }
+
+    [Fact]
+    public async Task Unknown_api_routes_are_404_not_the_spa()
+    {
+        var tom = await factory.CreateClientForAsync(TomId);
+        var response = await tom.GetAsync("/api/bokings");
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
     public async Task Admin_endpoints_enforce_the_admin_role()
     {
         var tom = await factory.CreateClientForAsync(TomId);

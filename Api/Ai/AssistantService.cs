@@ -139,10 +139,12 @@ public sealed class AssistantService(
 
         var completionOptions = new ChatCompletionOptions
         {
+            MaxOutputTokenCount = 200,
             ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
                 "booking_intent", BinaryData.FromString(IntentSchema), jsonSchemaIsStrict: true),
         };
 
+        using var timeout = new CancellationTokenSource(ModelTimeout);
         try
         {
             ChatCompletion completion = await client.CompleteChatAsync(
@@ -157,7 +159,7 @@ public sealed class AssistantService(
                     new UserChatMessage(text),
                 ],
                 completionOptions,
-                new CancellationTokenSource(ModelTimeout).Token);
+                timeout.Token);
 
             return JsonSerializer.Deserialize<BookingIntent>(completion.Content[0].Text, JsonOptions);
         }

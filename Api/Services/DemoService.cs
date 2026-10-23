@@ -17,12 +17,16 @@ public sealed class DemoService(AppDbContext db, ILogger<DemoService> logger) : 
 {
     public async Task ResetAsync()
     {
+        // One transaction: a booking that lands mid-reset, or a failed seed, must not leave
+        // a half-wiped database behind.
+        await using var transaction = await db.Database.BeginTransactionAsync();
         await db.Notifications.ExecuteDeleteAsync();
         await db.Bookings.ExecuteDeleteAsync();
         await db.ResourceConstraints.ExecuteDeleteAsync();
         await db.Resources.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
         await SeedData.EnsureSeededAsync(db);
+        await transaction.CommitAsync();
 
         logger.LogInformation("Demo data reset");
     }

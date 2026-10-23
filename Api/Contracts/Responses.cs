@@ -8,6 +8,9 @@ namespace Api.Contracts;
 
 public record UserResponse(Guid Id, string Name, string Email, UserRole Role, bool IsActive, DateTimeOffset CreatedOn);
 
+/// <summary>One entry in the anonymous login picker — deliberately no email.</summary>
+public record LoginOptionResponse(Guid Id, string Name, UserRole Role);
+
 public record ResourceResponse(
     Guid Id,
     string Name,

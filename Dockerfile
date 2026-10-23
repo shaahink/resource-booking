@@ -22,4 +22,6 @@ COPY --from=api-build /app/publish ./
 COPY --from=client-build /src/client/dist/client/browser ./wwwroot
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
+# The aspnet image ships an unprivileged user; nothing here writes to disk (keys live in Postgres).
+USER $APP_UID
 ENTRYPOINT ["dotnet", "Api.dll"]

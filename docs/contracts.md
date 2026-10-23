@@ -10,7 +10,7 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 
 | Method & path | Auth | Request | Response |
 | --- | --- | --- | --- |
-| `GET /api/auth/users` | — | | `UserResponse[]` (login picker — active users only) |
+| `GET /api/auth/users` | — | | `LoginOptionResponse[]` — `{ id, name, role }`, active users only, no emails (anonymous login picker) |
 | `POST /api/auth/login` | — | `{ userId }` | `UserResponse` + auth cookie; 401 for a disabled user |
 | `POST /api/auth/logout` | user | | 204 |
 | `GET /api/auth/me` | user | | `UserResponse` |
@@ -30,15 +30,20 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `PUT /api/admin/users/{id}` | admin | `SaveUserRequest` | `UserResponse` · 409 duplicate email |
 | `GET /api/admin/bookings?resourceId=&userId=&from=&to=` | admin | | `BookingResponse[]` (history, newest first, capped at 500) |
 | `GET /api/admin/stats/dashboard?from=&to=` | admin | | `DashboardResponse`. 400 unless the range is valid (below) |
-| `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest; 503 when no key) |
+| `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest, cached 10 min; 503 when no key; 429 over the AI rate limit) |
 | `POST /api/admin/demo/reset` | admin | | 204 — wipes every table and reseeds the demo data |
-| `POST /api/assistant/parse-booking` | user | `{ text }` | `AssistantParseResponse` (503 when no key) |
+| `POST /api/assistant/parse-booking` | user | `{ text }` | `AssistantParseResponse` (503 when no key; 429 over the AI rate limit) |
 
 A `from`/`to` range (`DateRangeQuery`) is half-open `[from, to)`: both are required,
 `to > from`, at most 366 days apart, and any UTC offset is accepted.
 
 Disabling a user (`SaveUserRequest.isActive = false`) keeps their history but removes
-them from the login picker and blocks sign-in; existing bookings are untouched.
+them from the login picker and blocks sign-in; existing bookings are untouched. Every
+request re-checks the session against the user row: a disabled or deleted user's cookie,
+or one whose role has changed since sign-in, gets 401 and is signed out.
+
+The AI endpoints share a rate limit of 10 requests a minute per client address. An
+unknown `/api/*` route is a ProblemDetails 404, never the SPA's `index.html`.
 
 `InsightsSummaryResponse` is structured for formatting: `{ headline, highlights[],
 suggestion, generatedAt }`.

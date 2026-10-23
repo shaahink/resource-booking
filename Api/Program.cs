@@ -6,6 +6,7 @@ using Api.Web;
 using System.Text.Json.Serialization;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -30,11 +31,22 @@ builder.Services
         options.Cookie.Name = "booking.auth";
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+        // Production sits behind Render's TLS proxy; ASPNETCORE_FORWARDEDHEADERS_ENABLED tells the
+        // app the request was https, and Always guarantees the flag regardless.
+        options.Cookie.SecurePolicy = builder.Environment.IsProduction() ? CookieSecurePolicy.Always : CookieSecurePolicy.SameAsRequest;
+        options.Events.OnValidatePrincipal = SessionValidation.ValidateAsync;
         // An API returns status codes, not login-page redirects.
         options.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
         options.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddDataProtection().PersistKeysToDbContext<AppDbContext>();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(RateLimitPolicies.Ai, RateLimitPolicies.AiPartition);
+});
+builder.Services.AddMemoryCache();
 
 builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>())
     .AddJsonOptions(options =>
@@ -83,9 +95,12 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+// An unknown API route is a 404, not the SPA's index.html with a 200.
+app.MapFallback("/api/{**path}", () => Results.Problem(statusCode: StatusCodes.Status404NotFound));
 app.MapFallbackToFile("index.html");
 
 // Migrate + seed on startup. Integration tests use their own factory and skip this path.
