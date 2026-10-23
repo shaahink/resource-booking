@@ -22,6 +22,7 @@ as strings. All times are UTC ISO 8601; the client renders Europe/London local t
 | `POST /api/notifications/{id}/read` | user | | 204 |
 | `POST /api/admin/resources` | admin | `SaveResourceRequest` | 201 `ResourceDto` |
 | `PUT /api/admin/resources/{id}` | admin | `SaveResourceRequest` | `ResourceDto` (constraints replaced wholesale) |
+| `GET /api/admin/resources` | admin | | `ResourceDto[]` including inactive |
 | `GET /api/admin/users` | admin | | `UserDto[]` |
 | `POST /api/admin/users` | admin | `SaveUserRequest` | 201 `UserDto` |
 | `PUT /api/admin/users/{id}` | admin | `SaveUserRequest` | `UserDto` |

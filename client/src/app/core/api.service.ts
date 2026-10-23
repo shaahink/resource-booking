@@ -68,6 +68,9 @@ export class ApiService extends ApiClient {
   }
 
   // admin
+  getAdminResources(): Observable<Resource[]> {
+    return this.http.get<Resource[]>('/api/admin/resources');
+  }
   createResource(request: SaveResourceRequest): Observable<Resource> {
     return this.http.post<Resource>('/api/admin/resources', request);
   }

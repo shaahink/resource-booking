@@ -158,6 +158,9 @@ export class MockApiService extends ApiClient {
   }
 
   // admin
+  getAdminResources(): Observable<Resource[]> {
+    return this.ok(this.resources);
+  }
   createResource(request: SaveResourceRequest): Observable<Resource> {
     const resource: Resource = {
       id: `r${++this.seq}`,

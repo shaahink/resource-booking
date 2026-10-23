@@ -39,6 +39,7 @@ export abstract class ApiClient {
   abstract markNotificationRead(id: string): Observable<void>;
 
   // admin
+  abstract getAdminResources(): Observable<Resource[]>; // includes inactive
   abstract createResource(request: SaveResourceRequest): Observable<Resource>;
   abstract updateResource(id: string, request: SaveResourceRequest): Observable<Resource>;
   abstract getUsers(): Observable<User[]>;

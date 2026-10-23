@@ -29,15 +29,15 @@ public class BookingRulesTests
 
     private static Booking Existing(Resource resource, User user, DateTimeOffset start, DateTimeOffset end,
         int quantity = 1, BookingStatus status = BookingStatus.Confirmed) => new()
-    {
-        Id = Guid.NewGuid(),
-        ResourceId = resource.Id,
-        UserId = user.Id,
-        Start = start,
-        End = end,
-        Quantity = quantity,
-        Status = status,
-    };
+        {
+            Id = Guid.NewGuid(),
+            ResourceId = resource.Id,
+            UserId = user.Id,
+            Start = start,
+            End = end,
+            Quantity = quantity,
+            Status = status,
+        };
 
     private static ResourceConstraint Constraint(ConstraintType type, string paramsJson) =>
         new() { Type = type, ParamsJson = paramsJson };
