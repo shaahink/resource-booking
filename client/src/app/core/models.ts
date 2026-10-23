@@ -21,6 +21,13 @@ export interface User {
   createdOn: string; // ISO 8601, UTC
 }
 
+/** An entry in the demo login picker: who to sign in as, without contact details. */
+export interface LoginOption {
+  id: string;
+  name: string;
+  role: UserRole;
+}
+
 export interface ResourceConstraint {
   id: string;
   type: ConstraintType;

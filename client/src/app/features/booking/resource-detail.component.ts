@@ -1,10 +1,20 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { interval, map } from 'rxjs';
 import { ApiClient } from '../../core/api-client';
 import { describeConstraint } from '../../core/constraints';
 import { Availability, Booking, Resource } from '../../core/models';
-import { GridSlot, bookingsInSlot, isClosed, openingDays, slotsForDay, usedQuantity, weekDays } from './grid';
+import {
+  GridSlot,
+  bookingsInSlot,
+  isClosed,
+  openingDays,
+  slotsForDay,
+  usedQuantity,
+  weekDays,
+} from './grid';
 import { BookingDialogComponent } from './booking-dialog.component';
 
 interface GridCell {
@@ -42,6 +52,11 @@ export class ResourceDetailComponent implements OnInit {
   protected readonly selectedSlot = signal<Date | null>(null);
   protected readonly toast = signal<string | null>(null);
 
+  /** Ticks every minute so cells flip to past while the page stays open. */
+  private readonly now = toSignal(interval(60_000).pipe(map(() => new Date())), {
+    initialValue: new Date(),
+  });
+
   /** The rules the grid enforces, said out loud: "Mon–Fri 08:00–20:00 · max 2 h · …". */
   protected readonly rulesStrip = computed(() =>
     (this.resource()?.constraints ?? []).map(describeConstraint).join(' · '),
@@ -60,7 +75,7 @@ export class ResourceDetailComponent implements OnInit {
     const bookings = availability?.bookings ?? [];
     const capacity = availability?.capacity ?? 1;
     const opening = this.opening();
-    const now = new Date();
+    const now = this.now();
 
     return weekDays(this.anchor()).map((date) => ({
       date,
@@ -71,6 +86,7 @@ export class ResourceDetailComponent implements OnInit {
           used,
           mine: bookingsInSlot(bookings, slot).some((b) => b.mine),
           full: used >= capacity,
+          // The running half-hour stays bookable: the server accepts a start back to its floor.
           past: slot.end <= now,
           closed: isClosed(slot, opening),
         };
@@ -124,6 +140,6 @@ export class ResourceDetailComponent implements OnInit {
   }
 
   protected isToday(date: Date): boolean {
-    return date.toDateString() === new Date().toDateString();
+    return date.toDateString() === this.now().toDateString();
   }
 }

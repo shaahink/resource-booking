@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, of, tap } from 'rxjs';
+import { EMPTY, catchError, finalize, of, tap } from 'rxjs';
 import { ApiClient } from './api-client';
 import { User } from './models';
 
@@ -36,9 +36,18 @@ export class AuthService {
   }
 
   logout(): void {
-    this.api.logout().subscribe(() => {
-      this.user.set(null);
-      this.router.navigateByUrl('/login');
-    });
+    this.api
+      .logout()
+      .pipe(
+        catchError(() => EMPTY),
+        finalize(() => this.endSession()),
+      )
+      .subscribe();
+  }
+
+  /** Forget the signed-in user locally and return to the login page. */
+  endSession(): void {
+    this.user.set(null);
+    this.router.navigateByUrl('/login');
   }
 }

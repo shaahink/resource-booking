@@ -31,7 +31,9 @@ export function parseOpeningDays(paramsJson: string): OpeningDays | null {
 }
 
 /** One-liner for a constraint, e.g. "Mon–Fri 08:00–20:00", "max 2 h", "1 day notice". */
-export function describeConstraint(constraint: ResourceConstraint): string {
+export function describeConstraint(
+  constraint: Pick<ResourceConstraint, 'type' | 'paramsJson'>,
+): string {
   const params = parseParams(constraint.paramsJson);
   switch (constraint.type) {
     case 'MaxDurationMinutes':
@@ -87,6 +89,9 @@ function openingHoursLabel(days: OpeningDays | null): string {
 
   if (groups.length === 0) return 'closed';
   return groups
-    .map((g) => `${g.from === g.to ? DAY_LABELS[g.from] : `${DAY_LABELS[g.from]}–${DAY_LABELS[g.to]}`} ${g.text}`)
+    .map(
+      (g) =>
+        `${g.from === g.to ? DAY_LABELS[g.from] : `${DAY_LABELS[g.from]}–${DAY_LABELS[g.to]}`} ${g.text}`,
+    )
     .join('; ');
 }

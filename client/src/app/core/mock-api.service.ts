@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, delay, of, throwError } from 'rxjs';
 import { ApiClient } from './api-client';
+import { peakQuantity } from './capacity';
 import { MOCK_RESOURCES, MOCK_USERS, generateMockBookings } from './mock-data';
 import {
   AssistantParseResponse,
@@ -9,6 +10,7 @@ import {
   CreateBookingRequest,
   Dashboard,
   InsightsSummary,
+  LoginOption,
   NotificationItem,
   Resource,
   ResourceType,
@@ -46,12 +48,19 @@ export class MockApiService extends ApiClient {
   }
 
   private problem(status: number, title: string, violations: RuleViolation[]): Observable<never> {
-    return throwError(() => ({ status, error: { title, status, violations } })).pipe(delay(150)) as Observable<never>;
+    return throwError(() => ({ status, error: { title, status, violations } })).pipe(
+      delay(150),
+    ) as Observable<never>;
   }
 
   // auth
-  getLoginUsers(): Observable<User[]> {
-    return this.ok(this.users.filter((u) => u.isActive).sort((a, b) => a.name.localeCompare(b.name)));
+  getLoginUsers(): Observable<LoginOption[]> {
+    return this.ok(
+      this.users
+        .filter((u) => u.isActive)
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map(({ id, name, role }) => ({ id, name, role })),
+    );
   }
   login(userId: string): Observable<User> {
     const user = this.users.find((u) => u.id === userId && u.isActive);
@@ -81,10 +90,7 @@ export class MockApiService extends ApiClient {
     const bookings = this.bookings
       .filter(
         (b) =>
-          b.resourceId === resourceId &&
-          b.status === 'Confirmed' &&
-          b.start < to &&
-          b.end > from,
+          b.resourceId === resourceId && b.status === 'Confirmed' && b.start < to && b.end > from,
       )
       .map((b) => ({
         id: b.id,
@@ -104,19 +110,19 @@ export class MockApiService extends ApiClient {
     if (request.end <= request.start) {
       violations.push({ code: 'invalid_range', message: 'End must be after start.' });
     }
-    const overlapping = this.bookings.filter(
-      (b) =>
-        b.resourceId === resource.id &&
-        b.status === 'Confirmed' &&
-        b.start < request.end &&
-        b.end > request.start,
+    const used = peakQuantity(
+      this.bookings.filter((b) => b.resourceId === resource.id && b.status === 'Confirmed'),
+      new Date(request.start),
+      new Date(request.end),
     );
-    const used = overlapping.reduce((sum, b) => sum + b.quantity, 0);
     if (used + request.quantity > resource.capacity) {
       violations.push(
         resource.capacity === 1
           ? { code: 'overlap_conflict', message: 'This slot is already booked.' }
-          : { code: 'capacity_exceeded', message: `Only ${resource.capacity - used} of ${resource.capacity} units are free in this window.` },
+          : {
+              code: 'capacity_exceeded',
+              message: `Only ${resource.capacity - used} of ${resource.capacity} units are free in this window.`,
+            },
       );
     }
     if (violations.length > 0) return this.problem(409, 'Booking rejected', violations);

@@ -2,7 +2,14 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiClient } from '../../core/api-client';
-import { AssistantParseResponse, AssistantProposal, CreateBookingRequest, Resource, ResourceType, toRuleProblem } from '../../core/models';
+import {
+  AssistantParseResponse,
+  AssistantProposal,
+  CreateBookingRequest,
+  Resource,
+  ResourceType,
+  toRuleProblem,
+} from '../../core/models';
 import { matchesQuery } from '../../core/search';
 import { SearchBoxComponent } from '../../shared/search-box.component';
 
@@ -33,6 +40,7 @@ export class BrowseComponent {
   protected readonly assistantBusy = signal(false);
   protected readonly assistantResult = signal<AssistantParseResponse | null>(null);
   protected readonly assistantError = signal<string | null>(null);
+  protected readonly bookingBusy = signal(false);
   protected readonly bookedMessage = signal<string | null>(null);
 
   constructor() {
@@ -72,6 +80,11 @@ export class BrowseComponent {
   }
 
   protected book(proposal: AssistantProposal): void {
+    if (this.bookingBusy()) return;
+    this.bookingBusy.set(true);
+    this.assistantError.set(null);
+    this.bookedMessage.set(null);
+
     const request: CreateBookingRequest = {
       resourceId: proposal.resourceId,
       start: proposal.start,
@@ -81,6 +94,7 @@ export class BrowseComponent {
     };
     this.api.createBooking(request).subscribe({
       next: (booking) => {
+        this.bookingBusy.set(false);
         this.assistantResult.set(null);
         this.assistantText.set('');
         this.bookedMessage.set(
@@ -94,6 +108,7 @@ export class BrowseComponent {
         );
       },
       error: (err: unknown) => {
+        this.bookingBusy.set(false);
         const problem = toRuleProblem(err);
         this.assistantError.set(
           problem?.violations.map((v) => v.message).join(' ') ?? 'Booking failed — try the grid.',

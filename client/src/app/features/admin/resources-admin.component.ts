@@ -3,24 +3,25 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../../core/api-client';
 import { describeConstraint } from '../../core/constraints';
-import { ConstraintType, Resource, ResourceConstraint, ResourceType, SaveResourceRequest } from '../../core/models';
+import {
+  ConstraintType,
+  Resource,
+  ResourceConstraint,
+  ResourceType,
+  SaveResourceRequest,
+} from '../../core/models';
 import { matchesQuery } from '../../core/search';
 import { SearchBoxComponent } from '../../shared/search-box.component';
-
-/**
- * Editable draft of one constraint. The friendly fields cover every shape the system
- * ships; OpeningHours edits as weekday flags + one window per day (multi-window JSON
- * still round-trips through the API — this editor just writes the single-window form).
- */
-interface ConstraintDraft {
-  type: ConstraintType;
-  minutes: number;
-  days: number;
-  count: number;
-  weekdays: Record<string, boolean>;
-  open: string;
-  close: string;
-}
+import {
+  ConstraintDraft,
+  PARAM_MAX,
+  WEEKDAY_KEYS,
+  constraintDraftValid,
+  isWholeInRange,
+  numericParam,
+  toConstraintDraft,
+  toParamsJson,
+} from './constraint-draft';
 
 /** The scalar fields, edited in place in the table row. Rules and description live in the drawer. */
 interface RowDraft {
@@ -37,7 +38,7 @@ interface ResourceDraft {
   id: string | null;
   name: string;
   type: ResourceType;
-  capacity: number;
+  capacity: number | null;
   seats: number | null;
   location: string;
   description: string;
@@ -45,7 +46,10 @@ interface ResourceDraft {
   constraints: ConstraintDraft[];
 }
 
-const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+/** Capacity and seats: whole numbers from 1 to the server's bound of 10,000; seats optional. */
+function unitsValid(capacity: number | null, seats: number | null): boolean {
+  return isWholeInRange(capacity, 10_000) && (seats === null || isWholeInRange(seats, 10_000));
+}
 
 @Component({
   selector: 'app-resources-admin',
@@ -64,6 +68,9 @@ export class ResourcesAdminComponent {
   protected readonly error = signal<string | null>(null);
 
   protected readonly weekdayKeys = WEEKDAY_KEYS;
+  protected readonly paramMax = PARAM_MAX;
+  protected readonly numericParam = numericParam;
+  protected readonly constraintValid = constraintDraftValid;
   protected readonly resourceTypes: ResourceType[] = ['Room', 'Car', 'Catering'];
   protected readonly constraintTypes: ConstraintType[] = [
     'MaxDurationMinutes',
@@ -101,6 +108,10 @@ export class ResourcesAdminComponent {
     return describeConstraint(constraint);
   }
 
+  protected rawSummary(draft: ConstraintDraft): string {
+    return describeConstraint({ type: draft.type, paramsJson: draft.raw ?? '' });
+  }
+
   // ── inline row editing: the scalar fields, saved against the row's existing rules ──
 
   protected startRowEdit(resource: Resource): void {
@@ -118,7 +129,7 @@ export class ResourcesAdminComponent {
   }
 
   protected rowValid(row: RowDraft): boolean {
-    return row.name.trim().length > 0 && (row.capacity ?? 0) >= 1 && (row.seats === null || row.seats >= 1);
+    return row.name.trim().length > 0 && unitsValid(row.capacity, row.seats);
   }
 
   protected saveRow(): void {
@@ -182,14 +193,14 @@ export class ResourcesAdminComponent {
       location: resource.location ?? '',
       description: resource.description ?? '',
       isActive: resource.isActive,
-      constraints: resource.constraints.map((c) => this.toDraft(c.type, c.paramsJson)),
+      constraints: resource.constraints.map((c) => toConstraintDraft(c.type, c.paramsJson)),
     });
   }
 
   protected addConstraint(type: string): void {
     const draft = this.draft();
     if (!draft || !(this.constraintTypes as string[]).includes(type)) return;
-    draft.constraints.push(this.toDraft(type as ConstraintType, null));
+    draft.constraints.push(toConstraintDraft(type as ConstraintType, null));
   }
 
   protected removeConstraint(index: number): void {
@@ -199,8 +210,8 @@ export class ResourcesAdminComponent {
   protected draftValid(draft: ResourceDraft): boolean {
     return (
       draft.name.trim().length > 0 &&
-      draft.capacity >= 1 &&
-      draft.constraints.every((c) => c.type !== 'OpeningHours' || c.open < c.close)
+      unitsValid(draft.capacity, draft.seats) &&
+      draft.constraints.every(constraintDraftValid)
     );
   }
 
@@ -213,12 +224,12 @@ export class ResourcesAdminComponent {
     const request: SaveResourceRequest = {
       name: draft.name.trim(),
       type: draft.type,
-      capacity: draft.capacity,
+      capacity: draft.capacity ?? 1,
       seats: draft.seats || null,
       location: draft.location.trim() || null,
       description: draft.description.trim() || null,
       isActive: draft.isActive,
-      constraints: draft.constraints.map((c) => ({ type: c.type, paramsJson: this.toParamsJson(c) })),
+      constraints: draft.constraints.map((c) => ({ type: c.type, paramsJson: toParamsJson(c) })),
     };
 
     const call = draft.id
@@ -236,60 +247,5 @@ export class ResourcesAdminComponent {
         this.error.set(err.error?.title ?? 'Could not save the resource.');
       },
     });
-  }
-
-  private toDraft(type: ConstraintType, paramsJson: string | null): ConstraintDraft {
-    const draft: ConstraintDraft = {
-      type,
-      minutes: 60,
-      days: 30,
-      count: 1,
-      weekdays: { mon: true, tue: true, wed: true, thu: true, fri: true, sat: false, sun: false },
-      open: '08:00',
-      close: '18:00',
-    };
-    if (!paramsJson) return draft;
-
-    try {
-      const params = JSON.parse(paramsJson) as {
-        minutes?: number;
-        days?: number | Record<string, [string, string][]>;
-        count?: number;
-      };
-      if (typeof params.minutes === 'number') draft.minutes = params.minutes;
-      if (typeof params.days === 'number') draft.days = params.days;
-      if (typeof params.count === 'number') draft.count = params.count;
-      if (params.days && typeof params.days === 'object') {
-        for (const key of WEEKDAY_KEYS) draft.weekdays[key] = key in params.days;
-        const firstWindow = Object.values(params.days)[0]?.[0];
-        if (firstWindow) {
-          draft.open = firstWindow[0];
-          draft.close = firstWindow[1];
-        }
-      }
-    } catch {
-      // Unparseable params: keep editor defaults; saving will rewrite them cleanly.
-    }
-    return draft;
-  }
-
-  private toParamsJson(draft: ConstraintDraft): string {
-    switch (draft.type) {
-      case 'MaxDurationMinutes':
-      case 'MinNoticeMinutes':
-        return JSON.stringify({ minutes: draft.minutes });
-      case 'MaxAdvanceDays':
-        return JSON.stringify({ days: draft.days });
-      case 'MaxConcurrentPerUser':
-      case 'MaxActiveBookingsPerUser':
-        return JSON.stringify({ count: draft.count });
-      case 'OpeningHours': {
-        const days: Record<string, [string, string][]> = {};
-        for (const key of WEEKDAY_KEYS) {
-          if (draft.weekdays[key]) days[key] = [[draft.open, draft.close]];
-        }
-        return JSON.stringify({ days });
-      }
-    }
   }
 }

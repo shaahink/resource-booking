@@ -1,7 +1,10 @@
 <div class="flex flex-wrap items-center justify-between gap-3">
   <div>
     <h1 class="text-xl font-semibold tracking-tight">Manage resources</h1>
-    <p class="mt-1 text-sm text-slate-500">Resources, their capacity model and booking constraints. Edit changes the row in place; Rules opens the full editor.</p>
+    <p class="mt-1 text-sm text-slate-500">
+      Resources, their capacity model and booking constraints. Edit changes the row in place; Rules
+      opens the full editor.
+    </p>
   </div>
   <div class="flex items-center gap-2">
     <app-search-box [(value)]="search" placeholder="Search resources…" />
@@ -39,8 +42,18 @@
             <!-- row in edit mode -->
             <tr class="border-b border-slate-50 bg-indigo-50/40 last:border-0">
               <td class="px-5 py-2.5">
-                <input type="text" [(ngModel)]="row.name" class="field !py-1.5" placeholder="Name" />
-                <input type="text" [(ngModel)]="row.location" class="field mt-1 !py-1.5 text-xs" placeholder="Location" />
+                <input
+                  type="text"
+                  [(ngModel)]="row.name"
+                  class="field !py-1.5"
+                  placeholder="Name"
+                />
+                <input
+                  type="text"
+                  [(ngModel)]="row.location"
+                  class="field mt-1 !py-1.5 text-xs"
+                  placeholder="Location"
+                />
               </td>
               <td class="px-3 py-2.5 align-top">
                 <select [(ngModel)]="row.type" class="field !w-auto !py-1.5">
@@ -51,15 +64,34 @@
               </td>
               <td class="px-3 py-2.5 align-top">
                 <div class="flex items-center gap-1.5">
-                  <input type="number" min="1" [(ngModel)]="row.capacity" class="field !w-20 !py-1.5" title="Capacity (1 = exclusive)" />
-                  <input type="number" min="1" [(ngModel)]="row.seats" class="field !w-20 !py-1.5" placeholder="seats" title="Seats (rooms)" />
+                  <input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="row.capacity"
+                    class="field !w-20 !py-1.5"
+                    title="Capacity (1 = exclusive)"
+                  />
+                  <input
+                    type="number"
+                    min="1"
+                    [(ngModel)]="row.seats"
+                    class="field !w-20 !py-1.5"
+                    placeholder="seats"
+                    title="Seats (rooms)"
+                  />
                 </div>
               </td>
               <td class="px-3 py-2.5 align-top text-xs text-slate-400">edit via Rules</td>
-              <td class="px-3 py-2.5 align-top text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+              <td class="px-3 py-2.5 align-top text-xs text-slate-400">
+                {{ resource.createdOn | date: 'd MMM yyyy' }}
+              </td>
               <td class="px-3 py-2.5 align-top">
                 <label class="flex items-center gap-1.5 text-xs">
-                  <input type="checkbox" [(ngModel)]="row.isActive" class="size-3.5 accent-indigo-600" />
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="row.isActive"
+                    class="size-3.5 accent-indigo-600"
+                  />
                   Active
                 </label>
               </td>
@@ -91,9 +123,13 @@
                 }
               </td>
               <td class="px-3 py-3">{{ resource.type }}</td>
-              <td class="px-3 py-3">{{ resource.capacity === 1 ? 'Exclusive' : resource.capacity + ' units' }}</td>
+              <td class="px-3 py-3">
+                {{ resource.capacity === 1 ? 'Exclusive' : resource.capacity + ' units' }}
+              </td>
               <td class="px-3 py-3"></td>
-              <td class="px-3 py-3 text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+              <td class="px-3 py-3 text-xs text-slate-400">
+                {{ resource.createdOn | date: 'd MMM yyyy' }}
+              </td>
               <td class="px-3 py-3"></td>
               <td></td>
             </tr>
@@ -127,11 +163,17 @@
                 }
               </div>
             </td>
-            <td class="px-3 py-3 text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+            <td class="px-3 py-3 text-xs text-slate-400">
+              {{ resource.createdOn | date: 'd MMM yyyy' }}
+            </td>
             <td class="px-3 py-3">
               <span
                 class="rounded-full px-2 py-0.5 text-xs"
-                [class]="resource.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'"
+                [class]="
+                  resource.isActive
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-slate-100 text-slate-500'
+                "
               >
                 {{ resource.isActive ? 'Active' : 'Inactive' }}
               </span>
@@ -157,8 +199,11 @@
       } @empty {
         <tr>
           <td colspan="7" class="px-5 py-8 text-center text-sm text-slate-400">
-            @if (search()) { Nothing matches “{{ search() }}”. }
-            @else { No resources yet. }
+            @if (search()) {
+              Nothing matches “{{ search() }}”.
+            } @else {
+              No resources yet.
+            }
           </td>
         </tr>
       }
@@ -169,8 +214,15 @@
 <!-- Edit drawer: description + booking rules (and everything else, for New resource) -->
 @if (draft(); as d) {
   <div class="fixed inset-0 z-40 flex justify-end">
-    <button type="button" class="absolute inset-0 bg-slate-900/40" aria-label="Close editor" (click)="draft.set(null)"></button>
-    <div class="relative flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-6 shadow-2xl">
+    <button
+      type="button"
+      class="absolute inset-0 bg-slate-900/40"
+      aria-label="Close editor"
+      (click)="draft.set(null)"
+    ></button>
+    <div
+      class="relative flex h-full w-full max-w-lg flex-col overflow-y-auto bg-white p-6 shadow-2xl"
+    >
       <h2 class="text-lg font-semibold">{{ d.id ? 'Edit resource' : 'New resource' }}</h2>
 
       <div class="mt-4 grid grid-cols-2 gap-4">
@@ -239,42 +291,57 @@
               </div>
 
               <div class="mt-2">
-                @switch (constraint.type) {
-                  @case ('OpeningHours') {
-                    <div class="flex flex-wrap gap-2">
-                      @for (key of weekdayKeys; track key) {
-                        <label class="flex items-center gap-1 text-xs capitalize">
-                          <input type="checkbox" [(ngModel)]="constraint.weekdays[key]" class="size-3.5 accent-indigo-600" />
-                          {{ key }}
-                        </label>
-                      }
-                    </div>
-                    <div class="mt-2 flex items-center gap-2 text-xs">
-                      <input type="time" [(ngModel)]="constraint.open" class="field !w-auto !py-1" />
-                      to
-                      <input type="time" [(ngModel)]="constraint.close" class="field !w-auto !py-1" />
-                    </div>
-                    @if (constraint.open >= constraint.close) {
-                      <p class="mt-1 text-xs text-rose-600">Closing time must be after opening time.</p>
+                @let param = numericParam(constraint.type);
+                @if (constraint.raw !== null) {
+                  <p class="text-sm">{{ rawSummary(constraint) }}</p>
+                  <p class="mt-1 text-xs text-slate-400">
+                    This editor can't show these settings, so they are kept as they are. Remove and
+                    re-add the rule to change it.
+                  </p>
+                } @else if (param) {
+                  <input
+                    type="number"
+                    min="1"
+                    [max]="paramMax[param]"
+                    step="1"
+                    [(ngModel)]="constraint.value"
+                    class="field !w-28"
+                  />
+                  @if (!constraintValid(constraint)) {
+                    <p class="mt-1 text-xs text-rose-600">
+                      Enter a whole number from 1 to {{ paramMax[param] }}.
+                    </p>
+                  }
+                } @else {
+                  <div class="flex flex-wrap gap-2">
+                    @for (key of weekdayKeys; track key) {
+                      <label class="flex items-center gap-1 text-xs capitalize">
+                        <input
+                          type="checkbox"
+                          [(ngModel)]="constraint.weekdays[key]"
+                          class="size-3.5 accent-indigo-600"
+                        />
+                        {{ key }}
+                      </label>
                     }
-                  }
-                  @case ('MaxAdvanceDays') {
-                    <input type="number" min="1" [(ngModel)]="constraint.days" class="field !w-28" />
-                  }
-                  @case ('MaxConcurrentPerUser') {
-                    <input type="number" min="1" [(ngModel)]="constraint.count" class="field !w-28" />
-                  }
-                  @case ('MaxActiveBookingsPerUser') {
-                    <input type="number" min="1" [(ngModel)]="constraint.count" class="field !w-28" />
-                  }
-                  @default {
-                    <input type="number" min="1" [(ngModel)]="constraint.minutes" class="field !w-28" />
+                  </div>
+                  <div class="mt-2 flex items-center gap-2 text-xs">
+                    <input type="time" [(ngModel)]="constraint.open" class="field !w-auto !py-1" />
+                    to
+                    <input type="time" [(ngModel)]="constraint.close" class="field !w-auto !py-1" />
+                  </div>
+                  @if (constraint.open >= constraint.close) {
+                    <p class="mt-1 text-xs text-rose-600">
+                      Closing time must be after opening time.
+                    </p>
                   }
                 }
               </div>
             </div>
           } @empty {
-            <p class="text-xs text-slate-400">No constraints — the resource is bookable without limits.</p>
+            <p class="text-xs text-slate-400">
+              No constraints — the resource is bookable without limits.
+            </p>
           }
         </div>
       </div>

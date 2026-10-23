@@ -9,6 +9,7 @@ import {
   CreateBookingRequest,
   Dashboard,
   InsightsSummary,
+  LoginOption,
   NotificationItem,
   Resource,
   ResourceType,
@@ -24,8 +25,8 @@ export class ApiService extends ApiClient {
   private readonly http = inject(HttpClient);
 
   // auth
-  getLoginUsers(): Observable<User[]> {
-    return this.http.get<User[]>('/api/auth/users');
+  getLoginUsers(): Observable<LoginOption[]> {
+    return this.http.get<LoginOption[]>('/api/auth/users');
   }
   login(userId: string): Observable<User> {
     return this.http.post<User>('/api/auth/login', { userId });

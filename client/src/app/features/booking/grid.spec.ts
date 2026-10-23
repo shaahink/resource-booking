@@ -1,6 +1,14 @@
 import { OpeningDays } from '../../core/constraints';
 import { AvailabilityBooking } from '../../core/models';
-import { bookingsInSlot, isClosed, overlaps, slotsForDay, startOfWeek, usedQuantity, weekDays } from './grid';
+import {
+  bookingsInSlot,
+  isClosed,
+  overlaps,
+  slotsForDay,
+  startOfWeek,
+  usedQuantity,
+  weekDays,
+} from './grid';
 
 describe('grid math', () => {
   const wednesday = new Date(2026, 9, 21, 15, 30); // Wed 21 Oct 2026
@@ -53,6 +61,44 @@ describe('grid math', () => {
     expect(used).toBe(15);
   });
 
+  describe('capacity within a slot (peak concurrent quantity, not a sum)', () => {
+    const at = (hour: number, minute: number) => new Date(2026, 9, 21, hour, minute);
+    const span = (from: Date, to: Date, quantity: number): AvailabilityBooking => ({
+      id: 'b',
+      start: from.toISOString(),
+      end: to.toISOString(),
+      quantity,
+      mine: false,
+    });
+    const slot = { start: at(14, 0), end: at(14, 30) };
+    const capacity = 40;
+
+    it('does not stack back-to-back bookings inside one slot', () => {
+      const used = usedQuantity(
+        [span(at(14, 0), at(14, 15), 20), span(at(14, 15), at(14, 30), 20)],
+        slot,
+      );
+      expect(used).toBe(20);
+      expect(used >= capacity).toBe(false);
+    });
+
+    it('still sums bookings that overlap inside the slot', () => {
+      const used = usedQuantity(
+        [span(at(14, 0), at(14, 20), 20), span(at(14, 10), at(14, 30), 20)],
+        slot,
+      );
+      expect(used).toBe(capacity);
+    });
+
+    it('ignores the part of a booking that falls outside the slot', () => {
+      const used = usedQuantity(
+        [span(at(13, 0), at(14, 10), 30), span(at(14, 10), at(15, 0), 5)],
+        slot,
+      );
+      expect(used).toBe(30);
+    });
+  });
+
   it('returns the bookings covering a slot', () => {
     const slot = { start: new Date(2026, 9, 21, 10), end: new Date(2026, 9, 21, 10, 30) };
     expect(bookingsInSlot([booking(9, 11), booking(10, 11), booking(11, 12)], slot).length).toBe(2);
@@ -62,7 +108,13 @@ describe('grid math', () => {
     // Weekdays 08:00–20:00 London. UTC instants keep the tests timezone-independent:
     // Wed 21 Oct 2026 is BST, so 08:00 London == 07:00Z.
     const window: [string, string][] = [['08:00', '20:00']];
-    const weekdays: OpeningDays = { mon: window, tue: window, wed: window, thu: window, fri: window };
+    const weekdays: OpeningDays = {
+      mon: window,
+      tue: window,
+      wed: window,
+      thu: window,
+      fri: window,
+    };
     const slotAt = (iso: string) => {
       const start = new Date(iso);
       return { start, end: new Date(start.getTime() + 30 * 60_000) };

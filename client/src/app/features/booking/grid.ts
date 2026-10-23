@@ -1,3 +1,4 @@
+import { peakQuantity } from '../../core/capacity';
 import { DayKey, OpeningDays, parseOpeningDays } from '../../core/constraints';
 import { AvailabilityBooking, ResourceConstraint } from '../../core/models';
 
@@ -28,7 +29,12 @@ export function weekDays(anchor: Date): Date[] {
 }
 
 /** Half-hour slots for one day between fromHour (inclusive) and toHour (exclusive). */
-export function slotsForDay(day: Date, fromHour: number, toHour: number, stepMinutes = 30): GridSlot[] {
+export function slotsForDay(
+  day: Date,
+  fromHour: number,
+  toHour: number,
+  stepMinutes = 30,
+): GridSlot[] {
   const slots: GridSlot[] = [];
   const cursor = new Date(day);
   cursor.setHours(fromHour, 0, 0, 0);
@@ -47,15 +53,16 @@ export function overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): bo
   return aStart < bEnd && aEnd > bStart;
 }
 
-/** Total booked quantity covering a slot (confirmed bookings only arrive from the API). */
+/** Peak quantity in use at any instant of a slot (confirmed bookings only arrive from the API). */
 export function usedQuantity(bookings: AvailabilityBooking[], slot: GridSlot): number {
-  return bookings
-    .filter((b) => overlaps(new Date(b.start), new Date(b.end), slot.start, slot.end))
-    .reduce((sum, b) => sum + b.quantity, 0);
+  return peakQuantity(bookings, slot.start, slot.end);
 }
 
 /** The bookings covering a slot (for ownership highlighting and tooltips). */
-export function bookingsInSlot(bookings: AvailabilityBooking[], slot: GridSlot): AvailabilityBooking[] {
+export function bookingsInSlot(
+  bookings: AvailabilityBooking[],
+  slot: GridSlot,
+): AvailabilityBooking[] {
   return bookings.filter((b) => overlaps(new Date(b.start), new Date(b.end), slot.start, slot.end));
 }
 
@@ -93,7 +100,9 @@ export function isClosed(slot: GridSlot, days: OpeningDays | null): boolean {
   const start = londonDayAndMinutes(slot.start);
   const endMinutes = start.minutes + (slot.end.getTime() - slot.start.getTime()) / 60_000;
   const windows = days[start.day] ?? [];
-  return !windows.some(([open, close]) => toMinutes(open) <= start.minutes && endMinutes <= toMinutes(close));
+  return !windows.some(
+    ([open, close]) => toMinutes(open) <= start.minutes && endMinutes <= toMinutes(close),
+  );
 }
 
 function toMinutes(hhmm: string): number {

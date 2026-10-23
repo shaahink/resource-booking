@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { ApiClient } from '../../core/api-client';
 import { AuthService } from '../../core/auth.service';
-import { User } from '../../core/models';
+import { LoginOption } from '../../core/models';
 
 /**
  * Demo-mode login: pick a seeded user. Roles are still enforced server-side on every
@@ -16,13 +16,13 @@ export class LoginComponent {
   private readonly api = inject(ApiClient);
   protected readonly auth = inject(AuthService);
 
-  protected readonly users = signal<User[]>([]);
+  protected readonly users = signal<LoginOption[]>([]);
 
   constructor() {
     this.api.getLoginUsers().subscribe((users) => this.users.set(users));
   }
 
-  protected pick(user: User): void {
+  protected pick(user: LoginOption): void {
     this.auth.login(user.id);
   }
 }

@@ -6,6 +6,7 @@ import {
   CreateBookingRequest,
   Dashboard,
   InsightsSummary,
+  LoginOption,
   NotificationItem,
   Resource,
   ResourceType,
@@ -21,7 +22,7 @@ import {
  */
 export abstract class ApiClient {
   // auth
-  abstract getLoginUsers(): Observable<User[]>;
+  abstract getLoginUsers(): Observable<LoginOption[]>;
   abstract login(userId: string): Observable<User>;
   abstract logout(): Observable<void>;
   abstract me(): Observable<User>;
