@@ -14,8 +14,13 @@ builder.Host.UseSerilog((context, config) => config
     .ReadFrom.Configuration(context.Configuration)
     .Enrich.FromLogContext());
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+// Managed hosts (Render) inject DATABASE_URL in postgres:// form; it wins over appsettings.
+var databaseUrl = builder.Configuration["DATABASE_URL"];
+var connectionString = string.IsNullOrEmpty(databaseUrl)
+    ? builder.Configuration.GetConnectionString("Default")
+    : DatabaseUrl.ToConnectionString(databaseUrl);
+
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
 builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

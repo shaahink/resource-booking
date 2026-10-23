@@ -138,15 +138,20 @@ One container (see `Dockerfile` — Angular build served from `wwwroot`) plus a 
 PostgreSQL. The app migrates and seeds on boot (single-replica assumption, stated
 deliberately), so a fresh database becomes a living demo on first start.
 
-- `ConnectionStrings__Default` — the Postgres connection string
+- `ConnectionStrings__Default` — the Postgres connection string, **or** `DATABASE_URL`
+  in `postgres://` form (managed hosts inject this; converted in `Api/Data/DatabaseUrl.cs`)
 - `OPENAI_API_KEY` — optional; without it the two AI features degrade to 503 + explained UI
 - `/health` answers only when the database does
 - `POST /api/admin/demo/reset` (admin, or the dashboard button) restores the seeded
   demo after visitors have played with it
 
+The repo carries a Render Blueprint ([`render.yaml`](render.yaml)): a Docker web
+service + Postgres, both free plans, auto-deploying on push to `main`. Free-plan
+caveats are noted in the file (15-minute spin-down, 30-day database expiry).
+
 ## Testing
 
-- **40 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
+- **42 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
   exact-capacity fit, one-unit-over, past bookings vs the running slot, DST transition
   day, closed days, malformed constraint params disabling only themselves) and the
   assistant's planner.

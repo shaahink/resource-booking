@@ -1,0 +1,34 @@
+# Render Blueprint: one Docker web service + a managed Postgres, both on free plans.
+# Create via Dashboard → New → Blueprint → this repo; OPENAI_API_KEY is prompted on
+# first deploy (sync: false — it never lives in the repo). The app converts the
+# injected DATABASE_URL (Api/Data/DatabaseUrl.cs) and migrates + seeds on boot.
+#
+# Free-plan facts that matter: the web service spins down after 15 idle minutes
+# (~1 min cold start — open the URL before a demo), and a free Postgres expires
+# 30 days after creation.
+
+services:
+  - type: web
+    name: bookable
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bookable-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PORT
+        value: "8080"
+
+databases:
+  - name: bookable-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "17"
+    databaseName: booking
+    user: booking
+    ipAllowList: [] # internal access only; the app reaches it over the private network
