@@ -69,7 +69,7 @@ public sealed class InsightsService(
             peakHours = dashboard.PeakHours.Where(p => p.Count > 0),
         });
 
-        var client = new ChatClient(options.Model, options.ApiKey);
+        var client = options.CreateChatClient();
         var completionOptions = new ChatCompletionOptions
         {
             MaxOutputTokenCount = 400,
@@ -95,10 +95,10 @@ public sealed class InsightsService(
                 ?? throw new JsonException("Empty digest");
             return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, DateTimeOffset.UtcNow);
         }
-        catch (Exception ex) when (ex is not AiNotConfiguredException)
+        catch (Exception ex)
         {
             logger.LogWarning(ex, "Insights generation failed");
-            throw new AiNotConfiguredException();
+            throw new AiUnavailableException(ex);
         }
     }
 

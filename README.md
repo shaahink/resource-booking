@@ -159,11 +159,11 @@ caveats are noted in the file (15-minute spin-down, 30-day database expiry).
   summed, past and backdated bookings vs the running slot, DST transition day, closed
   days, midnight close, malformed constraint params disabling only themselves), the one
   constraint-params reader, the assistant's planner and the `DATABASE_URL` conversion.
-- **28 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
+- **29 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
   live session revalidation, both concurrency races (exclusive, and pooled — the one that
   proves the advisory lock), cancellation + notification, past-booking rejection,
   duplicate email → 409, range and constraint validation, availability across UTC
-  offsets, dashboard, AI 503s and rate limiting.
+  offsets, dashboard, AI 503s (no key) vs 502s (provider down) and rate limiting.
 - **23 frontend tests** — the grid slot math and closed-cell logic (mirroring the
   server's strict overlap, peak capacity and opening-hours semantics), the constraint
   editor's lossless round trip, the 401 interceptor and component creation.

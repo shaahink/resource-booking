@@ -18,5 +18,10 @@ public sealed class BookingRejectedException(IReadOnlyList<RuleViolation> violat
 /// <summary>A uniqueness conflict outside the booking rules (e.g. duplicate email). 409.</summary>
 public sealed class ConflictException(string message) : Exception(message);
 
+/// <summary>The model provider failed: an outage, a retired model, a timeout. 502 — the
+/// feature exists but is down, which is not the user's fault and not "not configured".</summary>
+public sealed class AiUnavailableException(Exception inner)
+    : Exception("The AI model is unavailable right now. Booking from the grid works as normal.", inner);
+
 /// <summary>The AI feature is absent on this deployment, not broken. 503.</summary>
 public sealed class AiNotConfiguredException() : Exception("AI features are not configured on this deployment.");

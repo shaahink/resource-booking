@@ -35,6 +35,11 @@ public sealed class ApiExceptionHandler : IExceptionHandler
                 Title = denied.Message,
                 Status = StatusCodes.Status403Forbidden,
             },
+            AiUnavailableException down => new ProblemDetails
+            {
+                Title = down.Message,
+                Status = StatusCodes.Status502BadGateway,
+            },
             AiNotConfiguredException absent => new ProblemDetails
             {
                 Title = absent.Message,

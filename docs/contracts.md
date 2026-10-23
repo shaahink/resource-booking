@@ -30,9 +30,9 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `PUT /api/admin/users/{id}` | admin | `SaveUserRequest` | `UserResponse` · 409 duplicate email |
 | `GET /api/admin/bookings?resourceId=&userId=&from=&to=` | admin | | `BookingResponse[]` (history, newest first, capped at 500) |
 | `GET /api/admin/stats/dashboard?from=&to=` | admin | | `DashboardResponse`. 400 unless the range is valid (below) |
-| `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest, cached 10 min; 503 when no key; 429 over the AI rate limit) |
+| `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest, cached 10 min; 503 when no key; 502 when the model provider fails; 429 over the AI rate limit) |
 | `POST /api/admin/demo/reset` | admin | | 204 — wipes every table and reseeds the demo data |
-| `POST /api/assistant/parse-booking` | user | `{ text }` | `AssistantParseResponse` (503 when no key; 429 over the AI rate limit) |
+| `POST /api/assistant/parse-booking` | user | `{ text }` | `AssistantParseResponse` (503 when no key; 502 when the model provider fails; 429 over the AI rate limit) |
 
 A `from`/`to` range (`DateRangeQuery`) is half-open `[from, to)`: both are required,
 `to > from`, at most 366 days apart, and any UTC offset is accepted.

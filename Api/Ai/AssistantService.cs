@@ -136,7 +136,7 @@ public sealed class AssistantService(
     private async Task<BookingIntent?> ExtractIntentAsync(string text)
     {
         var localNow = BusinessTime.ToLocal(DateTimeOffset.UtcNow);
-        var client = new ChatClient(options.Model, options.ApiKey);
+        var client = options.CreateChatClient();
 
         var completionOptions = new ChatCompletionOptions
         {
@@ -146,9 +146,10 @@ public sealed class AssistantService(
         };
 
         using var timeout = new CancellationTokenSource(ModelTimeout);
+        ChatCompletion completion;
         try
         {
-            ChatCompletion completion = await client.CompleteChatAsync(
+            completion = await client.CompleteChatAsync(
                 [
                     new SystemChatMessage(
                         $"You extract booking intent for an office resource booking system " +
@@ -161,14 +162,23 @@ public sealed class AssistantService(
                 ],
                 completionOptions,
                 timeout.Token);
-
-            return JsonSerializer.Deserialize<BookingIntent>(completion.Content[0].Text, JsonOptions);
         }
-        catch (Exception ex) when (ex is not AiNotConfiguredException)
+        catch (Exception ex)
         {
-            // Model output is an enhancement, never a dependency: fail soft and let the
-            // user fall back to the grid.
-            logger.LogWarning(ex, "Assistant intent extraction failed");
+            logger.LogWarning(ex, "Assistant model call failed");
+            throw new AiUnavailableException(ex);
+        }
+
+        // The model answered but said nothing usable: that is a reading problem, answered softly.
+        try
+        {
+            return completion.Content.Count == 0
+                ? null
+                : JsonSerializer.Deserialize<BookingIntent>(completion.Content[0].Text, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Assistant model returned unreadable intent");
             return null;
         }
     }
