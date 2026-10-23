@@ -1,0 +1,35 @@
+<div class="flex min-h-screen">
+  <!-- Sidenav -->
+  <aside class="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <div class="flex items-center gap-2 px-5 py-5">
+      <span class="grid size-8 place-items-center rounded-lg bg-indigo-600 font-bold text-white">B</span>
+      <span class="text-lg font-semibold tracking-tight">Bookable</span>
+    </div>
+
+    <nav class="flex flex-1 flex-col gap-1 px-3 py-2 text-sm">
+      <a routerLink="/resources" routerLinkActive="nav-active" class="nav-link">Resources</a>
+      <a routerLink="/my-bookings" routerLinkActive="nav-active" class="nav-link">My bookings</a>
+
+      @if (auth.isAdmin()) {
+        <div class="mt-4 px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">Admin</div>
+        <a routerLink="/admin/dashboard" routerLinkActive="nav-active" class="nav-link">Dashboard</a>
+        <a routerLink="/admin/resources" routerLinkActive="nav-active" class="nav-link">Manage resources</a>
+        <a routerLink="/admin/users" routerLinkActive="nav-active" class="nav-link">Users</a>
+        <a routerLink="/admin/history" routerLinkActive="nav-active" class="nav-link">Usage history</a>
+      }
+    </nav>
+
+    <div class="border-t border-slate-200 px-5 py-4 text-sm">
+      <div class="font-medium">{{ auth.currentUser()?.name }}</div>
+      <div class="text-xs text-slate-500">{{ auth.currentUser()?.role }}</div>
+      <button type="button" (click)="auth.logout()" class="mt-2 text-xs text-indigo-600 hover:underline">
+        Switch user
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="min-w-0 flex-1 px-8 py-6">
+    <router-outlet />
+  </main>
+</div>

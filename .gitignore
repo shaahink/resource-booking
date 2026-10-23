@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+*.user
+.vs/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Env & secrets — never commit keys
+.env
+*.env.local
+appsettings.Local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Format
+        run: dotnet format ResourceBooking.sln --verify-no-changes
+      - name: Build
+        run: dotnet build ResourceBooking.sln --configuration Release
+      - name: Test (unit + integration via Testcontainers)
+        run: dotnet test --configuration Release --no-build --logger "console;verbosity=normal"
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npx ng lint
+      - name: Test
+        run: npx ng test
+      - name: Build
+        run: npx ng build
