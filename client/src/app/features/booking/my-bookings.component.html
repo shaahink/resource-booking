@@ -1,2 +1,46 @@
 <h1 class="text-xl font-semibold tracking-tight">My bookings</h1>
-<p class="mt-2 text-sm text-slate-500">Under construction — built in track F1.</p>
+
+<h2 class="mt-5 text-sm font-semibold text-slate-600">Upcoming</h2>
+<div class="mt-2 flex flex-col gap-2">
+  @for (booking of upcoming(); track booking.id) {
+    <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3">
+      <div>
+        <a [routerLink]="['/resources', booking.resourceId]" class="font-medium hover:text-indigo-700">
+          {{ booking.resourceName }}
+        </a>
+        <div class="text-xs text-slate-500">
+          {{ booking.start | date: 'EEE d MMM' }} · {{ booking.start | date: 'HH:mm' }}–{{ booking.end | date: 'HH:mm' }}
+          @if (booking.quantity > 1) { · ×{{ booking.quantity }} }
+          @if (booking.notes) { · {{ booking.notes }} }
+        </div>
+      </div>
+      <button
+        type="button"
+        (click)="cancel(booking)"
+        [disabled]="cancelling() === booking.id"
+        class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:border-rose-300 hover:text-rose-600 disabled:opacity-50"
+      >
+        {{ cancelling() === booking.id ? 'Cancelling…' : 'Cancel' }}
+      </button>
+    </div>
+  } @empty {
+    <p class="text-sm text-slate-400">Nothing booked — <a routerLink="/resources" class="text-indigo-600 hover:underline">browse resources</a>.</p>
+  }
+</div>
+
+<h2 class="mt-7 text-sm font-semibold text-slate-600">Past & cancelled</h2>
+<div class="mt-2 flex flex-col gap-1.5">
+  @for (booking of past(); track booking.id) {
+    <div class="flex items-center justify-between rounded-xl bg-white px-5 py-2.5 text-sm text-slate-500">
+      <span>
+        {{ booking.resourceName }} · {{ booking.start | date: 'd MMM HH:mm' }}
+        @if (booking.quantity > 1) { · ×{{ booking.quantity }} }
+      </span>
+      @if (booking.status === 'Cancelled') {
+        <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-500">cancelled</span>
+      }
+    </div>
+  } @empty {
+    <p class="text-sm text-slate-400">No history yet.</p>
+  }
+</div>

@@ -1,2 +1,106 @@
 <h1 class="text-xl font-semibold tracking-tight">Resources</h1>
-<p class="mt-2 text-sm text-slate-500">Under construction — built in track F1.</p>
+<p class="mt-1 text-sm text-slate-500">Pick a resource to see its availability, or just ask.</p>
+
+<!-- AI assistant -->
+<div class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4">
+  <form class="flex gap-2" (submit)="$event.preventDefault(); ask()">
+    <input
+      type="text"
+      [value]="assistantText()"
+      (input)="assistantText.set($any($event.target).value)"
+      placeholder="Try: book a room for 6 people tomorrow 14:00–15:00"
+      class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
+    />
+    <button
+      type="submit"
+      [disabled]="assistantBusy()"
+      class="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+    >
+      {{ assistantBusy() ? 'Thinking…' : 'Ask' }}
+    </button>
+  </form>
+
+  @if (assistantError()) {
+    <p class="mt-3 text-sm text-rose-600">{{ assistantError() }}</p>
+  }
+  @if (bookedMessage()) {
+    <p class="mt-3 text-sm font-medium text-emerald-700">✓ {{ bookedMessage() }}</p>
+  }
+  @if (assistantResult(); as result) {
+    <div class="mt-3">
+      <p class="text-sm text-slate-600">{{ result.summary }}</p>
+      @if (result.proposals.length > 0) {
+        <div class="mt-2 flex flex-wrap gap-2">
+          @for (proposal of result.proposals; track proposal.resourceId + proposal.start) {
+            <button
+              type="button"
+              (click)="book(proposal)"
+              class="rounded-xl border border-indigo-300 bg-white px-4 py-2 text-sm transition hover:border-indigo-500 hover:bg-indigo-100"
+            >
+              <span class="font-medium">{{ proposal.resourceName }}</span>
+              <span class="text-slate-500">
+                · {{ proposal.start | date: 'EEE d MMM HH:mm' }}–{{ proposal.end | date: 'HH:mm' }}
+                @if (proposal.quantity > 1) {
+                  · ×{{ proposal.quantity }}
+                }
+              </span>
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="mt-1 text-sm text-slate-500">No free slot matched — try the grid below.</p>
+      }
+    </div>
+  }
+</div>
+
+<!-- Type filter -->
+<div class="mt-6 flex gap-2">
+  @for (option of filters; track option) {
+    <button
+      type="button"
+      (click)="filter.set(option)"
+      class="rounded-full px-4 py-1.5 text-sm transition"
+      [class]="
+        filter() === option
+          ? 'bg-indigo-600 text-white'
+          : 'bg-white text-slate-600 border border-slate-200 hover:border-slate-400'
+      "
+    >
+      {{ option }}
+    </button>
+  }
+</div>
+
+<!-- Resource cards -->
+<div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  @for (resource of visible(); track resource.id) {
+    <a
+      [routerLink]="['/resources', resource.id]"
+      class="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-indigo-400 hover:shadow-sm"
+    >
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="font-semibold group-hover:text-indigo-700">{{ resource.name }}</div>
+          <div class="mt-0.5 text-xs text-slate-500">
+            {{ typeLabel(resource.type) }}@if (resource.location) { · {{ resource.location }} }
+          </div>
+        </div>
+        <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-600">
+          @if (resource.seats) {
+            {{ resource.seats }} seats
+          } @else if (resource.capacity > 1) {
+            {{ resource.capacity }} units
+          } @else {
+            exclusive
+          }
+        </span>
+      </div>
+      @if (resource.description) {
+        <p class="mt-3 line-clamp-2 text-sm text-slate-500">{{ resource.description }}</p>
+      }
+    </a>
+  } @empty {
+    <p class="text-sm text-slate-400">No resources in this category.</p>
+  }
+</div>

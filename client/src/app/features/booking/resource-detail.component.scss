@@ -1,1 +1,10 @@
-/* Styling is Tailwind-first; this file exists for anything utilities can't express. */
+/* Tailwind v4: component styles are compiled standalone, so @apply needs the theme referenced. */
+@reference "tailwindcss";
+
+.nav-btn {
+  @apply grid h-9 min-w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-600 transition;
+
+  &:hover {
+    @apply border-slate-400 text-slate-900;
+  }
+}

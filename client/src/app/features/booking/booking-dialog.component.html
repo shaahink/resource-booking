@@ -1,0 +1,90 @@
+<div class="fixed inset-0 z-40 grid place-items-center p-4">
+  <button
+    type="button"
+    class="absolute inset-0 w-full bg-slate-900/40"
+    aria-label="Close dialog"
+    (click)="closed.emit()"
+  ></button>
+  <div
+    class="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+    role="dialog"
+    aria-modal="true"
+    (keydown.escape)="closed.emit()"
+  >
+    <h2 class="text-lg font-semibold">Book {{ resource().name }}</h2>
+    <p class="mt-1 text-sm text-slate-500">
+      {{ slotStart() | date: 'EEEE d MMMM' }} · {{ slotStart() | date: 'HH:mm' }}–{{ end() | date: 'HH:mm' }}
+    </p>
+
+    <div class="mt-4 flex flex-col gap-4">
+      <label class="block">
+        <span class="mb-1 block text-xs font-medium text-slate-600">Duration</span>
+        <select
+          [value]="durationMinutes()"
+          (change)="durationMinutes.set(+$any($event.target).value)"
+          class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+        >
+          @for (minutes of durations; track minutes) {
+            <option [value]="minutes">
+              {{ minutes < 60 ? minutes + ' min' : minutes / 60 + ' h' }}
+            </option>
+          }
+        </select>
+      </label>
+
+      @if (resource().capacity > 1) {
+        <label class="block">
+          <span class="mb-1 block text-xs font-medium text-slate-600">
+            Quantity (of {{ resource().capacity }})
+          </span>
+          <input
+            type="number"
+            min="1"
+            [max]="resource().capacity"
+            [value]="quantity()"
+            (input)="quantity.set(+$any($event.target).value)"
+            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+          />
+        </label>
+      }
+
+      <label class="block">
+        <span class="mb-1 block text-xs font-medium text-slate-600">Notes (optional)</span>
+        <input
+          type="text"
+          maxlength="500"
+          [value]="notes()"
+          (input)="notes.set($any($event.target).value)"
+          placeholder="e.g. Quarterly review"
+          class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+        />
+      </label>
+    </div>
+
+    @if (violations().length > 0) {
+      <div class="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3">
+        @for (violation of violations(); track violation.code) {
+          <p class="text-sm text-rose-700">{{ violation.message }}</p>
+        }
+      </div>
+    }
+
+    <div class="mt-5 flex justify-end gap-2">
+      <button
+        type="button"
+        (click)="closed.emit()"
+        class="rounded-xl px-4 py-2 text-sm text-slate-600 transition hover:bg-slate-100"
+      >
+        Cancel
+      </button>
+      <button
+        type="button"
+        (click)="submit()"
+        [disabled]="busy()"
+        class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+      >
+        {{ busy() ? 'Booking…' : 'Confirm booking' }}
+      </button>
+    </div>
+  </div>
+</div>
