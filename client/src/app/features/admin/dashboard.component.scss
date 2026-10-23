@@ -1,1 +1,22 @@
-/* Styling is Tailwind-first; this file exists for anything utilities can't express. */
+/* Tailwind v4: component styles are compiled standalone, so @apply needs the theme referenced. */
+@reference "tailwindcss";
+
+.card {
+  @apply rounded-2xl border border-slate-200 bg-white p-5;
+}
+
+.card-title {
+  @apply text-sm font-semibold text-slate-600;
+}
+
+.kpi {
+  @apply rounded-2xl border border-slate-200 bg-white p-5;
+}
+
+.kpi-label {
+  @apply text-xs font-medium tracking-wide text-slate-500 uppercase;
+}
+
+.kpi-value {
+  @apply mt-1 text-2xl font-semibold tracking-tight;
+}

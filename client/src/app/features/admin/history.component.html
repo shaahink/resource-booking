@@ -1,2 +1,82 @@
 <h1 class="text-xl font-semibold tracking-tight">Usage history</h1>
-<p class="mt-2 text-sm text-slate-500">Under construction — built in track F2.</p>
+<p class="mt-1 text-sm text-slate-500">Every booking, filterable by resource, user and date.</p>
+
+<!-- Filters -->
+<form class="mt-4 flex flex-wrap items-end gap-3" (submit)="$event.preventDefault(); search()">
+  <label class="block">
+    <span class="filter-label">Resource</span>
+    <select [(ngModel)]="resourceId" name="resourceId" class="filter-field">
+      <option value="">All resources</option>
+      @for (resource of resources(); track resource.id) {
+        <option [value]="resource.id">{{ resource.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="block">
+    <span class="filter-label">User</span>
+    <select [(ngModel)]="userId" name="userId" class="filter-field">
+      <option value="">All users</option>
+      @for (user of users(); track user.id) {
+        <option [value]="user.id">{{ user.name }}</option>
+      }
+    </select>
+  </label>
+  <label class="block">
+    <span class="filter-label">From</span>
+    <input type="date" [(ngModel)]="from" name="from" class="filter-field" />
+  </label>
+  <label class="block">
+    <span class="filter-label">To</span>
+    <input type="date" [(ngModel)]="to" name="to" class="filter-field" />
+  </label>
+  <button type="submit" class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700">
+    Filter
+  </button>
+  <button type="button" (click)="reset()" class="rounded-xl px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100">
+    Reset
+  </button>
+</form>
+
+<!-- Table -->
+<div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-slate-100 text-left text-xs text-slate-500">
+        <th class="px-5 py-3 font-medium">When</th>
+        <th class="px-3 py-3 font-medium">Resource</th>
+        <th class="px-3 py-3 font-medium">User</th>
+        <th class="px-3 py-3 font-medium">Qty</th>
+        <th class="px-3 py-3 font-medium">Status</th>
+        <th class="px-3 py-3 font-medium">Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (booking of bookings(); track booking.id) {
+        <tr class="border-b border-slate-50 last:border-0" [class.opacity-60]="booking.status === 'Cancelled'">
+          <td class="px-5 py-2.5 whitespace-nowrap">
+            {{ booking.start | date: 'EEE d MMM' }}
+            <span class="text-slate-400">{{ booking.start | date: 'HH:mm' }}–{{ booking.end | date: 'HH:mm' }}</span>
+          </td>
+          <td class="px-3 py-2.5">{{ booking.resourceName }}</td>
+          <td class="px-3 py-2.5">{{ booking.userName }}</td>
+          <td class="px-3 py-2.5">{{ booking.quantity }}</td>
+          <td class="px-3 py-2.5">
+            <span
+              class="rounded-full px-2 py-0.5 text-xs"
+              [class]="booking.status === 'Confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-500'"
+            >
+              {{ booking.status }}
+            </span>
+          </td>
+          <td class="max-w-48 truncate px-3 py-2.5 text-slate-500">{{ booking.notes }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-400">
+            {{ loading() ? 'Loading…' : 'No bookings match these filters.' }}
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
