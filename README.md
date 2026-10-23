@@ -3,7 +3,8 @@
 A web app where employees book meeting rooms, pool cars and catering, and admins manage
 users, resources, booking constraints, and see how it is all being used.
 
-**Live app:** _link in the submission email_ · **Demo access:** open the app and pick a
+**Live app:** <https://bookable-wpfp.onrender.com> (free tier — first load after an
+idle spell takes ~a minute to wake) · **Demo access:** open the app and pick a
 user — *Priya Sharma* is the admin; everyone else is a regular user. (Demo-mode login is
 a deliberate decision, not a shortcut — see [Decisions](#decisions-and-the-roads-not-taken).)
 
