@@ -10,7 +10,7 @@ public interface INotificationService
     Task MarkReadAsync(Guid userId, Guid notificationId);
 }
 
-public class NotificationService(AppDbContext db) : INotificationService
+public sealed class NotificationService(AppDbContext db) : INotificationService
 {
     private const int MaxReturned = 50;
 

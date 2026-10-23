@@ -1,5 +1,6 @@
 using Api.Contracts;
 using Api.Services;
+using Api.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +9,7 @@ namespace Api.Controllers;
 [ApiController]
 [Route("api/notifications")]
 [Authorize]
-public class NotificationsController(INotificationService notifications) : ControllerBase
+public sealed class NotificationsController(INotificationService notifications) : ControllerBase
 {
     [HttpGet]
     public Task<IReadOnlyList<NotificationResponse>> GetMine() =>

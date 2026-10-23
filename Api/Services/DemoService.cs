@@ -13,7 +13,7 @@ public interface IDemoService
 /// design, so it needs an undo button; seeded ids are fixed, which is why the signed-in
 /// admin's cookie keeps working across a reset.
 /// </summary>
-public class DemoService(AppDbContext db, ILogger<DemoService> logger) : IDemoService
+public sealed class DemoService(AppDbContext db, ILogger<DemoService> logger) : IDemoService
 {
     public async Task ResetAsync()
     {

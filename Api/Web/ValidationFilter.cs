@@ -2,13 +2,13 @@ using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 
-namespace Api.Services;
+namespace Api.Web;
 
 /// <summary>
 /// Runs any registered FluentValidation validator against each action argument and short-circuits
 /// with a 400 ValidationProblem. Request SHAPE only — business rules live in BookingRules.
 /// </summary>
-public class ValidationFilter(IServiceProvider services) : IAsyncActionFilter
+public sealed class ValidationFilter(IServiceProvider services) : IAsyncActionFilter
 {
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {

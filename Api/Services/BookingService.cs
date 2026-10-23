@@ -14,7 +14,7 @@ public interface IBookingService
     Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to);
 }
 
-public class BookingService(
+public sealed class BookingService(
     AppDbContext db,
     IBookingRules rules,
     ILogger<BookingService> logger) : IBookingService

@@ -36,12 +36,3 @@ public record BookingContext(
     IReadOnlyList<Booking> OverlappingConfirmedBookings,
     IReadOnlyList<Booking> UsersUpcomingConfirmedBookings,
     DateTimeOffset Now);
-
-/// <summary>
-/// THE single choke point for booking validation. Every booking mutation — the form,
-/// the AI assistant, anything future — passes through Validate. Returns ALL violations, never just the first.
-/// </summary>
-public interface IBookingRules
-{
-    IReadOnlyList<RuleViolation> Validate(BookingContext context);
-}

@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Api.Tests.Unit;
 
-public class AssistantPlannerTests
+public sealed class AssistantPlannerTests
 {
     // Monday 19 Oct 2026, 09:00 Europe/London (BST).
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z");

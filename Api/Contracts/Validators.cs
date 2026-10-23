@@ -3,11 +3,11 @@ using Api.Contracts;
 using Api.Domain;
 using FluentValidation;
 
-namespace Api.Services;
+namespace Api.Contracts;
 
 // Request *shape* only — business rules live in BookingRules.
 
-public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequest>
+public sealed class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequest>
 {
     /// <summary>Sanity cap, not policy: pool cars legitimately go multi-day, nothing sane books a fortnight.
     /// Per-resource duration policy is the MaxDurationMinutes constraint.</summary>
@@ -25,7 +25,7 @@ public class CreateBookingRequestValidator : AbstractValidator<CreateBookingRequ
     }
 }
 
-public class SaveResourceRequestValidator : AbstractValidator<SaveResourceRequest>
+public sealed class SaveResourceRequestValidator : AbstractValidator<SaveResourceRequest>
 {
     public SaveResourceRequestValidator()
     {
@@ -71,7 +71,7 @@ public class SaveResourceRequestValidator : AbstractValidator<SaveResourceReques
         && number >= 1;
 }
 
-public class SaveUserRequestValidator : AbstractValidator<SaveUserRequest>
+public sealed class SaveUserRequestValidator : AbstractValidator<SaveUserRequest>
 {
     public SaveUserRequestValidator()
     {
@@ -80,7 +80,7 @@ public class SaveUserRequestValidator : AbstractValidator<SaveUserRequest>
     }
 }
 
-public class AssistantParseRequestValidator : AbstractValidator<AssistantParseRequest>
+public sealed class AssistantParseRequestValidator : AbstractValidator<AssistantParseRequest>
 {
     public AssistantParseRequestValidator()
     {

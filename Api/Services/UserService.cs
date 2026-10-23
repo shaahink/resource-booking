@@ -12,7 +12,7 @@ public interface IUserService
     Task<UserResponse> UpdateAsync(Guid id, SaveUserRequest request);
 }
 
-public class UserService(AppDbContext db) : IUserService
+public sealed class UserService(AppDbContext db) : IUserService
 {
     public async Task<IReadOnlyList<UserResponse>> GetAllAsync() =>
         await db.Users.AsNoTracking()

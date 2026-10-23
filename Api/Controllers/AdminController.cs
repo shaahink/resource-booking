@@ -9,7 +9,7 @@ namespace Api.Controllers;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Roles = "Admin")]
-public class AdminController(
+public sealed class AdminController(
     IResourceService resources,
     IUserService users,
     IBookingService bookings,

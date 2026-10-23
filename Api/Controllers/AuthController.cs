@@ -16,7 +16,7 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public class AuthController(AppDbContext db) : ControllerBase
+public sealed class AuthController(AppDbContext db) : ControllerBase
 {
     /// <summary>The login screen's user picker. Disabled users cannot sign in, so they are not offered.</summary>
     [HttpGet("users")]

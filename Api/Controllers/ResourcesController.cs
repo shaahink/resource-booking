@@ -1,6 +1,7 @@
 using Api.Contracts;
 using Api.Domain;
 using Api.Services;
+using Api.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,7 +10,7 @@ namespace Api.Controllers;
 [ApiController]
 [Route("api/resources")]
 [Authorize]
-public class ResourcesController(IResourceService resources) : ControllerBase
+public sealed class ResourcesController(IResourceService resources) : ControllerBase
 {
     [HttpGet]
     public Task<IReadOnlyList<ResourceResponse>> GetAll([FromQuery] ResourceType? type) =>

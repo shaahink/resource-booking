@@ -3,7 +3,7 @@ using Xunit;
 
 namespace Api.Tests.Unit;
 
-public class DatabaseUrlTests
+public sealed class DatabaseUrlTests
 {
     [Fact]
     public void Converts_a_full_url_with_port_and_escaped_password()

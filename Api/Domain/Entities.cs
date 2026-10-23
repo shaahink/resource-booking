@@ -16,7 +16,7 @@ public enum ConstraintType
     MaxActiveBookingsPerUser,
 }
 
-public class User
+public sealed class User
 {
     public Guid Id { get; set; }
     public required string Name { get; set; }
@@ -30,7 +30,7 @@ public class User
     public List<Booking> Bookings { get; set; } = [];
 }
 
-public class Resource
+public sealed class Resource
 {
     public Guid Id { get; set; }
     public required string Name { get; set; }
@@ -50,7 +50,7 @@ public class Resource
     public List<Booking> Bookings { get; set; } = [];
 }
 
-public class ResourceConstraint
+public sealed class ResourceConstraint
 {
     public Guid Id { get; set; }
     public Guid ResourceId { get; set; }
@@ -60,7 +60,7 @@ public class ResourceConstraint
     public required string ParamsJson { get; set; }
 }
 
-public class Booking
+public sealed class Booking
 {
     public Guid Id { get; set; }
     public Guid ResourceId { get; set; }
@@ -81,7 +81,7 @@ public class Booking
     public User? User { get; set; }
 }
 
-public class Notification
+public sealed class Notification
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

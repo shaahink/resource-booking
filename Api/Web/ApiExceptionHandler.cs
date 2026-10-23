@@ -1,15 +1,15 @@
-using Api.Ai;
+using Api.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Api.Services;
+namespace Api.Web;
 
 /// <summary>
 /// Maps domain exceptions to the contract's ProblemDetails shapes (docs/contracts.md § Error shape):
 /// BookingRejectedException → 409/422 with the `violations` extension, ConflictException → 409,
 /// KeyNotFoundException → 404, UnauthorizedAccessException → 403.
 /// </summary>
-public class ApiExceptionHandler : IExceptionHandler
+public sealed class ApiExceptionHandler : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {

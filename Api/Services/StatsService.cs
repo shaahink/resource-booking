@@ -18,7 +18,7 @@ public interface IStatsService
 /// day is the number a facilities manager acts on). Pooled resources weight booked time
 /// by quantity/capacity. Utilisation is clipped at 100%.
 /// </summary>
-public class StatsService(AppDbContext db) : IStatsService
+public sealed class StatsService(AppDbContext db) : IStatsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Api.Contracts;
 using Api.Data;
 using Api.Domain;
+using Api.Services;
 using Microsoft.EntityFrameworkCore;
 using OpenAI.Chat;
 
@@ -18,7 +19,7 @@ public interface IAssistantService
 /// code: candidate ranking, window resolution, and a BookingRules dry-run per candidate.
 /// A proposal the user sees has already passed the same validation a form booking would.
 /// </summary>
-public class AssistantService(
+public sealed class AssistantService(
     AiOptions options,
     AppDbContext db,
     IBookingRules rules,

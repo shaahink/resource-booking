@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Api.Contracts;
+using Api.Domain;
 using Api.Services;
 using OpenAI.Chat;
 
@@ -16,7 +17,7 @@ public interface IInsightsService
 /// as AI-generated in the UI. The payload carries no personal data: resource names and
 /// counts only, never employee names.
 /// </summary>
-public class InsightsService(AiOptions options, IStatsService stats, ILogger<InsightsService> logger) : IInsightsService
+public sealed class InsightsService(AiOptions options, IStatsService stats, ILogger<InsightsService> logger) : IInsightsService
 {
     private const int DigestDays = 14;
     private static readonly TimeSpan ModelTimeout = TimeSpan.FromSeconds(15);

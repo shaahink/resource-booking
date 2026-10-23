@@ -2,6 +2,7 @@ using Api.Ai;
 using Api.Data;
 using Api.Domain;
 using Api.Services;
+using Api.Web;
 using System.Text.Json.Serialization;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.Cookies;

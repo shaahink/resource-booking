@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace Api.Controllers;
+namespace Api.Web;
 
 public static class CurrentUser
 {

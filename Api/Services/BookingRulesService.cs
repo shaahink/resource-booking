@@ -4,6 +4,15 @@ using Api.Domain;
 namespace Api.Services;
 
 /// <summary>
+/// THE single choke point for booking validation. Every booking mutation — the form,
+/// the AI assistant, anything future — passes through Validate. Returns ALL violations, never just the first.
+/// </summary>
+public interface IBookingRules
+{
+    IReadOnlyList<RuleViolation> Validate(BookingContext context);
+}
+
+/// <summary>
 /// The booking rule engine — the single choke point for every booking mutation.
 /// Pure: all data arrives via BookingContext (no EF, no clock, no I/O), so every rule
 /// is unit-testable in isolation. Returns ALL violations, never just the first.
@@ -15,7 +24,7 @@ namespace Api.Services;
 /// of the resource — the admin UI validates shapes on entry, and a typo in one rule
 /// should not take the resource offline.
 /// </summary>
-public class BookingRulesService : IBookingRules
+public sealed class BookingRulesService : IBookingRules
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 

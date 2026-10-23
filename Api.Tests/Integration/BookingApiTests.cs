@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Api.Tests.Integration;
 
-public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
+public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 {
     private static readonly Guid AdminId = SeedData.AdminId;                                  // Priya (Admin)
     private static readonly Guid TomId = Guid.Parse("00000000-0000-0000-0000-000000000002"); // Tom (User)

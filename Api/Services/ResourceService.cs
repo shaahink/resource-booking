@@ -14,7 +14,7 @@ public interface IResourceService
     Task<ResourceResponse> UpdateAsync(Guid id, SaveResourceRequest request);
 }
 
-public class ResourceService(AppDbContext db) : IResourceService
+public sealed class ResourceService(AppDbContext db) : IResourceService
 {
     public async Task<IReadOnlyList<ResourceResponse>> GetAllAsync(ResourceType? type, bool includeInactive)
     {

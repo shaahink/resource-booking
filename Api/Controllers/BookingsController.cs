@@ -1,5 +1,6 @@
 using Api.Contracts;
 using Api.Services;
+using Api.Web;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,7 +9,7 @@ namespace Api.Controllers;
 [ApiController]
 [Route("api/bookings")]
 [Authorize]
-public class BookingsController(IBookingService bookings) : ControllerBase
+public sealed class BookingsController(IBookingService bookings) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<BookingResponse>> Create(CreateBookingRequest request)
