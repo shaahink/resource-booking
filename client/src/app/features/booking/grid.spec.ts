@@ -1,5 +1,6 @@
+import { OpeningDays } from '../../core/constraints';
 import { AvailabilityBooking } from '../../core/models';
-import { bookingsInSlot, overlaps, slotsForDay, startOfWeek, usedQuantity, weekDays } from './grid';
+import { bookingsInSlot, isClosed, overlaps, slotsForDay, startOfWeek, usedQuantity, weekDays } from './grid';
 
 describe('grid math', () => {
   const wednesday = new Date(2026, 9, 21, 15, 30); // Wed 21 Oct 2026
@@ -55,5 +56,31 @@ describe('grid math', () => {
   it('returns the bookings covering a slot', () => {
     const slot = { start: new Date(2026, 9, 21, 10), end: new Date(2026, 9, 21, 10, 30) };
     expect(bookingsInSlot([booking(9, 11), booking(10, 11), booking(11, 12)], slot).length).toBe(2);
+  });
+
+  describe('closed cells (opening hours are Europe/London)', () => {
+    // Weekdays 08:00–20:00 London. UTC instants keep the tests timezone-independent:
+    // Wed 21 Oct 2026 is BST, so 08:00 London == 07:00Z.
+    const window: [string, string][] = [['08:00', '20:00']];
+    const weekdays: OpeningDays = { mon: window, tue: window, wed: window, thu: window, fri: window };
+    const slotAt = (iso: string) => {
+      const start = new Date(iso);
+      return { start, end: new Date(start.getTime() + 30 * 60_000) };
+    };
+
+    it('marks slots outside the windows as closed, boundaries exact', () => {
+      expect(isClosed(slotAt('2026-10-21T06:30:00Z'), weekdays)).toBe(true); // 07:30 London — before opening
+      expect(isClosed(slotAt('2026-10-21T07:00:00Z'), weekdays)).toBe(false); // 08:00 — opens
+      expect(isClosed(slotAt('2026-10-21T18:30:00Z'), weekdays)).toBe(false); // 19:30–20:00 — last slot
+      expect(isClosed(slotAt('2026-10-21T19:00:00Z'), weekdays)).toBe(true); // 20:00 — closed
+    });
+
+    it('marks whole days without a window as closed', () => {
+      expect(isClosed(slotAt('2026-10-24T09:00:00Z'), weekdays)).toBe(true); // Saturday
+    });
+
+    it('never closes a resource without opening hours', () => {
+      expect(isClosed(slotAt('2026-10-24T02:00:00Z'), null)).toBe(false);
+    });
   });
 });

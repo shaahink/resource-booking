@@ -7,47 +7,73 @@ namespace Api.Ai;
 
 public interface IInsightsService
 {
-    Task<InsightsSummaryDto> GetSummaryAsync();
+    Task<InsightsSummaryResponse> GetSummaryAsync();
 }
 
 /// <summary>
 /// Plain-English utilisation digest for the dashboard. The numbers come from StatsService;
 /// the model only narrates them — it is never asked to compute, and the card is labelled
-/// as AI-generated in the UI.
+/// as AI-generated in the UI. The payload carries no personal data: resource names and
+/// counts only, never employee names.
 /// </summary>
 public class InsightsService(AiOptions options, IStatsService stats, ILogger<InsightsService> logger) : IInsightsService
 {
-    public async Task<InsightsSummaryDto> GetSummaryAsync()
+    private const int DigestDays = 14;
+    private static readonly TimeSpan ModelTimeout = TimeSpan.FromSeconds(15);
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    // Structured output so the UI can format the card instead of rendering one text blob.
+    private const string DigestSchema = """
+        {
+          "type": "object",
+          "properties": {
+            "headline": { "type": "string", "description": "One sentence: the overall picture." },
+            "highlights": { "type": "array", "items": { "type": "string" }, "description": "2-4 short, concrete observations." },
+            "suggestion": { "type": "string", "description": "One action the facilities manager should take." }
+          },
+          "required": ["headline", "highlights", "suggestion"],
+          "additionalProperties": false
+        }
+        """;
+
+    public async Task<InsightsSummaryResponse> GetSummaryAsync()
     {
         if (!options.IsConfigured) throw new AiNotConfiguredException();
 
         var to = DateTimeOffset.UtcNow;
-        var dashboard = await stats.GetDashboardAsync(to.AddDays(-14), to);
+        var dashboard = await stats.GetDashboardAsync(to.AddDays(-DigestDays), to);
         var data = JsonSerializer.Serialize(new
         {
-            days = 14,
+            days = DigestDays,
             dashboard.OverallUtilisationPct,
-            dashboard.BookingsThisWeek,
+            dashboard.BookingsInRange,
             utilisation = dashboard.Utilisation.Select(u => new { u.Name, u.Type, u.UtilisationPct, u.BookingsCount }),
             peakHours = dashboard.PeakHours.Where(p => p.Count > 0),
-            topUsers = dashboard.TopUsers.Select(t => new { t.Name, t.Count }),
         });
 
         var client = new ChatClient(options.Model, options.ApiKey);
+        var completionOptions = new ChatCompletionOptions
+        {
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                "utilisation_digest", BinaryData.FromString(DigestSchema), jsonSchemaIsStrict: true),
+        };
+
         try
         {
             ChatCompletion completion = await client.CompleteChatAsync(
                 [
                     new SystemChatMessage(
-                        "You write a 3-4 sentence utilisation digest for a facilities manager. " +
+                        "You write a utilisation digest for a facilities manager. " +
                         "Plain English, concrete, actionable: name the busiest and most underused " +
-                        "resources and the peak window, and suggest one action. No bullet points, " +
-                        "no numbers the data does not contain."),
+                        "resources and the peak window. No numbers the data does not contain."),
                     new UserChatMessage(data),
                 ],
-                cancellationToken: new CancellationTokenSource(TimeSpan.FromSeconds(15)).Token);
+                completionOptions,
+                new CancellationTokenSource(ModelTimeout).Token);
 
-            return new InsightsSummaryDto(completion.Content[0].Text.Trim(), DateTimeOffset.UtcNow);
+            var digest = JsonSerializer.Deserialize<Digest>(completion.Content[0].Text, JsonOptions)
+                ?? throw new JsonException("Empty digest");
+            return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, DateTimeOffset.UtcNow);
         }
         catch (Exception ex) when (ex is not AiNotConfiguredException)
         {
@@ -55,4 +81,6 @@ public class InsightsService(AiOptions options, IStatsService stats, ILogger<Ins
             throw new AiNotConfiguredException();
         }
     }
+
+    private sealed record Digest(string Headline, IReadOnlyList<string> Highlights, string Suggestion);
 }

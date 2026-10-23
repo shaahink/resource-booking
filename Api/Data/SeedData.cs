@@ -16,20 +16,23 @@ public static class SeedData
     {
         if (await db.Users.AnyAsync()) return;
 
-        var admin = new User { Id = AdminId, Name = "Priya Sharma", Email = "priya@demo.local", Role = UserRole.Admin };
+        // A plausible "this system has been running a while" timestamp for the seeded rows.
+        var provisionedOn = DateTimeOffset.UtcNow.AddDays(-90);
+
+        var admin = new User { Id = AdminId, Name = "Priya Sharma", Email = "priya@demo.local", Role = UserRole.Admin, CreatedOn = provisionedOn };
         var users = new List<User>
         {
             admin,
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "Tom Hale", Email = "tom@demo.local", Role = UserRole.User },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "Maya Chen", Email = "maya@demo.local", Role = UserRole.User },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000004"), Name = "Jonas Weber", Email = "jonas@demo.local", Role = UserRole.User },
-            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000005"), Name = "Sofia Rossi", Email = "sofia@demo.local", Role = UserRole.User },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000002"), Name = "Tom Hale", Email = "tom@demo.local", Role = UserRole.User, CreatedOn = provisionedOn },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000003"), Name = "Maya Chen", Email = "maya@demo.local", Role = UserRole.User, CreatedOn = provisionedOn },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000004"), Name = "Jonas Weber", Email = "jonas@demo.local", Role = UserRole.User, CreatedOn = provisionedOn },
+            new() { Id = Guid.Parse("00000000-0000-0000-0000-000000000005"), Name = "Sofia Rossi", Email = "sofia@demo.local", Role = UserRole.User, CreatedOn = provisionedOn },
         };
 
         static ResourceConstraint C(ConstraintType type, string paramsJson) =>
             new() { Type = type, ParamsJson = paramsJson };
 
-        const string weekdayNineToSix = """{"days":{"mon":[["08:00","20:00"]],"tue":[["08:00","20:00"]],"wed":[["08:00","20:00"]],"thu":[["08:00","20:00"]],"fri":[["08:00","20:00"]]}}""";
+        const string weekdayEightToEight = """{"days":{"mon":[["08:00","20:00"]],"tue":[["08:00","20:00"]],"wed":[["08:00","20:00"]],"thu":[["08:00","20:00"]],"fri":[["08:00","20:00"]]}}""";
         const string lunchWindow = """{"days":{"mon":[["11:30","14:00"]],"tue":[["11:30","14:00"]],"wed":[["11:30","14:00"]],"thu":[["11:30","14:00"]],"fri":[["11:30","14:00"]]}}""";
 
         var resources = new List<Resource>
@@ -39,28 +42,28 @@ public static class SeedData
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
                 Name = "Boardroom", Type = ResourceType.Room, Capacity = 1, Seats = 14,
                 Location = "1st floor", Description = "Large meeting room with video conferencing and whiteboard wall.",
-                Constraints = [C(ConstraintType.OpeningHours, weekdayNineToSix), C(ConstraintType.MaxAdvanceDays, """{"days":60}""")],
+                Constraints = [C(ConstraintType.OpeningHours, weekdayEightToEight), C(ConstraintType.MaxAdvanceDays, """{"days":60}""")],
             },
             new()
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
                 Name = "Huddle A", Type = ResourceType.Room, Capacity = 1, Seats = 4,
                 Location = "2nd floor", Description = "Small huddle room for quick syncs.",
-                Constraints = [C(ConstraintType.OpeningHours, weekdayNineToSix), C(ConstraintType.MaxDurationMinutes, """{"minutes":120}""")],
+                Constraints = [C(ConstraintType.OpeningHours, weekdayEightToEight), C(ConstraintType.MaxDurationMinutes, """{"minutes":120}""")],
             },
             new()
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
                 Name = "Huddle B", Type = ResourceType.Room, Capacity = 1, Seats = 4,
                 Location = "2nd floor", Description = "Small huddle room next to the kitchen.",
-                Constraints = [C(ConstraintType.OpeningHours, weekdayNineToSix), C(ConstraintType.MaxDurationMinutes, """{"minutes":120}""")],
+                Constraints = [C(ConstraintType.OpeningHours, weekdayEightToEight), C(ConstraintType.MaxDurationMinutes, """{"minutes":120}""")],
             },
             new()
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000004"),
                 Name = "Workshop Room", Type = ResourceType.Room, Capacity = 1, Seats = 20,
                 Location = "Ground floor", Description = "Training and workshop space with movable desks.",
-                Constraints = [C(ConstraintType.OpeningHours, weekdayNineToSix)],
+                Constraints = [C(ConstraintType.OpeningHours, weekdayEightToEight)],
             },
             new()
             {
@@ -84,6 +87,8 @@ public static class SeedData
                 Constraints = [C(ConstraintType.OpeningHours, lunchWindow), C(ConstraintType.MinNoticeMinutes, """{"minutes":1440}""")],
             },
         };
+
+        foreach (var resource in resources) resource.CreatedOn = provisionedOn;
 
         db.Users.AddRange(users);
         db.Resources.AddRange(resources);
@@ -147,7 +152,7 @@ public static class SeedData
             Quantity = quantity,
             IsExclusive = resource.Capacity == 1,
             Status = BookingStatus.Confirmed,
-            CreatedAt = start.AddDays(-2).ToUniversalTime(),
+            CreatedOn = start.AddDays(-2).ToUniversalTime(),
         };
     }
 }

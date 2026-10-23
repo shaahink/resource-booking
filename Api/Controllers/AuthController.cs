@@ -18,19 +18,20 @@ namespace Api.Controllers;
 [Route("api/auth")]
 public class AuthController(AppDbContext db) : ControllerBase
 {
-    /// <summary>The login screen's user picker.</summary>
+    /// <summary>The login screen's user picker. Disabled users cannot sign in, so they are not offered.</summary>
     [HttpGet("users")]
-    public async Task<IReadOnlyList<UserDto>> GetUsers() =>
+    public async Task<IReadOnlyList<UserResponse>> GetUsers() =>
         await db.Users.AsNoTracking()
+            .Where(u => u.IsActive)
             .OrderBy(u => u.Name)
-            .Select(u => new UserDto(u.Id, u.Name, u.Email, u.Role))
+            .Select(u => new UserResponse(u.Id, u.Name, u.Email, u.Role, u.IsActive, u.CreatedOn))
             .ToListAsync();
 
     [HttpPost("login")]
-    public async Task<ActionResult<UserDto>> Login(LoginRequest request)
+    public async Task<ActionResult<UserResponse>> Login(LoginRequest request)
     {
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == request.UserId);
-        if (user is null) return Unauthorized();
+        if (user is null || !user.IsActive) return Unauthorized();
 
         var claims = new List<Claim>
         {
@@ -41,7 +42,7 @@ public class AuthController(AppDbContext db) : ControllerBase
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(new ClaimsPrincipal(identity));
 
-        return new UserDto(user.Id, user.Name, user.Email, user.Role);
+        return new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedOn);
     }
 
     [HttpPost("logout")]
@@ -54,12 +55,12 @@ public class AuthController(AppDbContext db) : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<UserDto>> Me()
+    public async Task<ActionResult<UserResponse>> Me()
     {
         var id = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
-        return user is null
+        return user is null || !user.IsActive
             ? Unauthorized()
-            : new UserDto(user.Id, user.Name, user.Email, user.Role);
+            : new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedOn);
     }
 }

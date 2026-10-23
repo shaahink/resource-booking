@@ -1,8 +1,6 @@
 using Api.Contracts;
 using Api.Data;
 using Api.Domain;
-using Api.Hubs;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
@@ -10,21 +8,20 @@ namespace Api.Services;
 
 public interface IBookingService
 {
-    Task<BookingDto> CreateAsync(Guid userId, CreateBookingRequest request);
+    Task<BookingResponse> CreateAsync(Guid userId, CreateBookingRequest request);
     Task CancelAsync(Guid callerId, bool callerIsAdmin, Guid bookingId);
-    Task<IReadOnlyList<BookingDto>> GetMineAsync(Guid userId);
-    Task<IReadOnlyList<BookingDto>> GetHistoryAsync(Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to);
+    Task<IReadOnlyList<BookingResponse>> GetMineAsync(Guid userId);
+    Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to);
 }
 
 public class BookingService(
     AppDbContext db,
     IBookingRules rules,
-    IHubContext<BookingsHub> hub,
     ILogger<BookingService> logger) : IBookingService
 {
-    private static readonly TimeZoneInfo London = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
+    private const int HistoryPageSize = 500;
 
-    public async Task<BookingDto> CreateAsync(Guid userId, CreateBookingRequest request)
+    public async Task<BookingResponse> CreateAsync(Guid userId, CreateBookingRequest request)
     {
         var resource = await db.Resources.AsNoTracking()
             .Include(r => r.Constraints)
@@ -41,7 +38,7 @@ public class BookingService(
             Quantity = request.Quantity,
             IsExclusive = resource.Capacity == 1,
             Notes = request.Notes,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CreatedOn = DateTimeOffset.UtcNow,
         };
 
         await using (var transaction = await db.Database.BeginTransactionAsync())
@@ -90,10 +87,7 @@ public class BookingService(
         logger.LogInformation("Booking {BookingId} created for {Resource} by {User}",
             booking.Id, resource.Name, user.Name);
 
-        await hub.Clients.Group(BookingsHub.ResourceGroup(resource.Id))
-            .SendAsync("bookingCreated", resource.Id, booking.Id);
-
-        return ToDto(booking, resource.Name, resource.Type, user.Name);
+        return ToResponse(booking, resource.Name, resource.Type, user.Name);
     }
 
     public async Task CancelAsync(Guid callerId, bool callerIsAdmin, Guid bookingId)
@@ -110,44 +104,35 @@ public class BookingService(
         booking.Status = BookingStatus.Cancelled;
         booking.CancelledAt = DateTimeOffset.UtcNow;
 
-        string? message = null;
         if (booking.UserId != callerId)
         {
             var caller = await db.Users.AsNoTracking().FirstAsync(u => u.Id == callerId);
-            message = $"Your {booking.Resource!.Name} booking on " +
-                      $"{TimeZoneInfo.ConvertTime(booking.Start, London):ddd d MMM HH:mm} was cancelled by {caller.Name}.";
             db.Notifications.Add(new Notification
             {
                 UserId = booking.UserId,
                 BookingId = booking.Id,
-                Type = "booking_cancelled",
-                Message = message,
-                CreatedAt = DateTimeOffset.UtcNow,
+                Type = NotificationTypes.BookingCancelled,
+                Message = $"Your {booking.Resource!.Name} booking on " +
+                          $"{BusinessTime.ToLocal(booking.Start):ddd d MMM HH:mm} was cancelled by {caller.Name}.",
+                CreatedOn = DateTimeOffset.UtcNow,
             });
         }
 
         await db.SaveChangesAsync();
 
         logger.LogInformation("Booking {BookingId} cancelled by {CallerId}", booking.Id, callerId);
-
-        await hub.Clients.Group(BookingsHub.ResourceGroup(booking.ResourceId))
-            .SendAsync("bookingCancelled", booking.ResourceId, booking.Id);
-        if (message is not null)
-        {
-            await hub.Clients.User(booking.UserId.ToString()).SendAsync("notification", message);
-        }
     }
 
-    public async Task<IReadOnlyList<BookingDto>> GetMineAsync(Guid userId) =>
+    public async Task<IReadOnlyList<BookingResponse>> GetMineAsync(Guid userId) =>
         await db.Bookings.AsNoTracking()
             .Where(b => b.UserId == userId)
             .OrderByDescending(b => b.Start)
-            .Select(b => new BookingDto(
+            .Select(b => new BookingResponse(
                 b.Id, b.ResourceId, b.Resource!.Name, b.Resource.Type,
-                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedAt))
+                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn))
             .ToListAsync();
 
-    public async Task<IReadOnlyList<BookingDto>> GetHistoryAsync(
+    public async Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(
         Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to)
     {
         var query = db.Bookings.AsNoTracking();
@@ -158,14 +143,14 @@ public class BookingService(
 
         return await query
             .OrderByDescending(b => b.Start)
-            .Take(500)
-            .Select(b => new BookingDto(
+            .Take(HistoryPageSize)
+            .Select(b => new BookingResponse(
                 b.Id, b.ResourceId, b.Resource!.Name, b.Resource.Type,
-                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedAt))
+                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn))
             .ToListAsync();
     }
 
-    private static BookingDto ToDto(Booking b, string resourceName, ResourceType type, string userName) =>
+    private static BookingResponse ToResponse(Booking b, string resourceName, ResourceType type, string userName) =>
         new(b.Id, b.ResourceId, resourceName, type, b.UserId, userName,
-            b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedAt);
+            b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn);
 }

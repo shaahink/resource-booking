@@ -53,6 +53,7 @@ export abstract class ApiClient {
   }): Observable<Booking[]>;
   abstract getDashboard(from: string, to: string): Observable<Dashboard>;
   abstract getInsightsSummary(): Observable<InsightsSummary>;
+  abstract resetDemoData(): Observable<void>;
 
   // AI assistant
   abstract parseBookingRequest(text: string): Observable<AssistantParseResponse>;

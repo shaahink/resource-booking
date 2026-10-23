@@ -12,13 +12,13 @@ namespace Api.Controllers;
 public class ResourcesController(IResourceService resources) : ControllerBase
 {
     [HttpGet]
-    public Task<IReadOnlyList<ResourceDto>> GetAll([FromQuery] ResourceType? type) =>
+    public Task<IReadOnlyList<ResourceResponse>> GetAll([FromQuery] ResourceType? type) =>
         resources.GetAllAsync(type, includeInactive: false);
 
     [HttpGet("{id:guid}")]
-    public Task<ResourceDto> Get(Guid id) => resources.GetAsync(id);
+    public Task<ResourceResponse> Get(Guid id) => resources.GetAsync(id);
 
     [HttpGet("{id:guid}/availability")]
-    public Task<AvailabilityDto> GetAvailability(Guid id, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
+    public Task<AvailabilityResponse> GetAvailability(Guid id, [FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
         resources.GetAvailabilityAsync(id, from, to, User.GetUserId());
 }

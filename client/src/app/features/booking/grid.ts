@@ -1,4 +1,5 @@
-import { AvailabilityBooking } from '../../core/models';
+import { DayKey, OpeningDays, parseOpeningDays } from '../../core/constraints';
+import { AvailabilityBooking, ResourceConstraint } from '../../core/models';
 
 // Pure slot math for the availability grid — kept free of Angular so it is trivially testable.
 
@@ -56,4 +57,46 @@ export function usedQuantity(bookings: AvailabilityBooking[], slot: GridSlot): n
 /** The bookings covering a slot (for ownership highlighting and tooltips). */
 export function bookingsInSlot(bookings: AvailabilityBooking[], slot: GridSlot): AvailabilityBooking[] {
   return bookings.filter((b) => overlaps(new Date(b.start), new Date(b.end), slot.start, slot.end));
+}
+
+// ── Opening hours → closed cells ────────────────────────────────────────
+// Opening hours are defined in Europe/London (see docs/contracts.md); the viewer may be
+// anywhere, so a slot's wall-clock is read in London time before checking the windows.
+// This mirrors the server's OpeningHours rule — the grid shows what the API will enforce.
+
+const londonClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Europe/London',
+  weekday: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+function londonDayAndMinutes(instant: Date): { day: DayKey; minutes: number } {
+  const parts = londonClock.formatToParts(instant);
+  const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
+  return {
+    day: part('weekday').toLowerCase() as DayKey,
+    minutes: Number(part('hour')) * 60 + Number(part('minute')),
+  };
+}
+
+/** A resource's opening windows, or null when it has no OpeningHours constraint (always open). */
+export function openingDays(constraints: ResourceConstraint[]): OpeningDays | null {
+  const constraint = constraints.find((c) => c.type === 'OpeningHours');
+  return constraint ? parseOpeningDays(constraint.paramsJson) : null;
+}
+
+/** True when no opening window fully contains the slot. */
+export function isClosed(slot: GridSlot, days: OpeningDays | null): boolean {
+  if (!days) return false;
+  const start = londonDayAndMinutes(slot.start);
+  const endMinutes = start.minutes + (slot.end.getTime() - slot.start.getTime()) / 60_000;
+  const windows = days[start.day] ?? [];
+  return !windows.some(([open, close]) => toMinutes(open) <= start.minutes && endMinutes <= toMinutes(close));
+}
+
+function toMinutes(hhmm: string): number {
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
 }

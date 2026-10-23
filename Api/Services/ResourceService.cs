@@ -7,16 +7,16 @@ namespace Api.Services;
 
 public interface IResourceService
 {
-    Task<IReadOnlyList<ResourceDto>> GetAllAsync(ResourceType? type, bool includeInactive);
-    Task<ResourceDto> GetAsync(Guid id);
-    Task<AvailabilityDto> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId);
-    Task<ResourceDto> CreateAsync(SaveResourceRequest request);
-    Task<ResourceDto> UpdateAsync(Guid id, SaveResourceRequest request);
+    Task<IReadOnlyList<ResourceResponse>> GetAllAsync(ResourceType? type, bool includeInactive);
+    Task<ResourceResponse> GetAsync(Guid id);
+    Task<AvailabilityResponse> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId);
+    Task<ResourceResponse> CreateAsync(SaveResourceRequest request);
+    Task<ResourceResponse> UpdateAsync(Guid id, SaveResourceRequest request);
 }
 
 public class ResourceService(AppDbContext db) : IResourceService
 {
-    public async Task<IReadOnlyList<ResourceDto>> GetAllAsync(ResourceType? type, bool includeInactive)
+    public async Task<IReadOnlyList<ResourceResponse>> GetAllAsync(ResourceType? type, bool includeInactive)
     {
         var query = db.Resources.AsNoTracking().Include(r => r.Constraints).AsQueryable();
         if (!includeInactive) query = query.Where(r => r.IsActive);
@@ -26,19 +26,19 @@ public class ResourceService(AppDbContext db) : IResourceService
             .OrderBy(r => r.Type == ResourceType.Room ? 0 : r.Type == ResourceType.Car ? 1 : 2)
             .ThenBy(r => r.Name)
             .ToListAsync();
-        return resources.Select(ToDto).ToList();
+        return resources.Select(ToResponse).ToList();
     }
 
-    public async Task<ResourceDto> GetAsync(Guid id)
+    public async Task<ResourceResponse> GetAsync(Guid id)
     {
         var resource = await db.Resources.AsNoTracking()
             .Include(r => r.Constraints)
             .FirstOrDefaultAsync(r => r.Id == id)
             ?? throw new KeyNotFoundException("Resource not found.");
-        return ToDto(resource);
+        return ToResponse(resource);
     }
 
-    public async Task<AvailabilityDto> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId)
+    public async Task<AvailabilityResponse> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId)
     {
         var resource = await db.Resources.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id)
             ?? throw new KeyNotFoundException("Resource not found.");
@@ -48,13 +48,13 @@ public class ResourceService(AppDbContext db) : IResourceService
                         && b.Status == BookingStatus.Confirmed
                         && b.Start < to && b.End > from)
             .OrderBy(b => b.Start)
-            .Select(b => new AvailabilityBookingDto(b.Id, b.Start, b.End, b.Quantity, b.UserId == currentUserId))
+            .Select(b => new AvailabilityBookingResponse(b.Id, b.Start, b.End, b.Quantity, b.UserId == currentUserId))
             .ToListAsync();
 
-        return new AvailabilityDto(id, resource.Capacity, bookings);
+        return new AvailabilityResponse(id, resource.Capacity, bookings);
     }
 
-    public async Task<ResourceDto> CreateAsync(SaveResourceRequest request)
+    public async Task<ResourceResponse> CreateAsync(SaveResourceRequest request)
     {
         var resource = new Resource
         {
@@ -65,16 +65,17 @@ public class ResourceService(AppDbContext db) : IResourceService
             Location = request.Location,
             Description = request.Description,
             IsActive = request.IsActive,
+            CreatedOn = DateTimeOffset.UtcNow,
             Constraints = request.Constraints
                 .Select(c => new ResourceConstraint { Type = c.Type, ParamsJson = c.ParamsJson })
                 .ToList(),
         };
         db.Resources.Add(resource);
         await db.SaveChangesAsync();
-        return ToDto(resource);
+        return ToResponse(resource);
     }
 
-    public async Task<ResourceDto> UpdateAsync(Guid id, SaveResourceRequest request)
+    public async Task<ResourceResponse> UpdateAsync(Guid id, SaveResourceRequest request)
     {
         var resource = await db.Resources
             .Include(r => r.Constraints)
@@ -90,6 +91,7 @@ public class ResourceService(AppDbContext db) : IResourceService
         resource.IsActive = request.IsActive;
 
         // Constraints are replaced wholesale — the admin UI always sends the full set.
+        // Capacity changes apply to new bookings only: existing rows keep their IsExclusive flag.
         resource.Constraints.Clear();
         foreach (var c in request.Constraints)
         {
@@ -97,10 +99,10 @@ public class ResourceService(AppDbContext db) : IResourceService
         }
 
         await db.SaveChangesAsync();
-        return ToDto(resource);
+        return ToResponse(resource);
     }
 
-    private static ResourceDto ToDto(Resource r) => new(
-        r.Id, r.Name, r.Type, r.Capacity, r.Seats, r.Location, r.Description, r.IsActive,
-        r.Constraints.Select(c => new ConstraintDto(c.Id, c.Type, c.ParamsJson)).ToList());
+    private static ResourceResponse ToResponse(Resource r) => new(
+        r.Id, r.Name, r.Type, r.Capacity, r.Seats, r.Location, r.Description, r.IsActive, r.CreatedOn,
+        r.Constraints.Select(c => new ConstraintResponse(c.Id, c.Type, c.ParamsJson)).ToList());
 }

@@ -43,6 +43,15 @@ public class AssistantPlannerTests
     }
 
     [Fact]
+    public void Missing_time_on_a_future_date_defaults_to_morning()
+    {
+        // "book a room on Wednesday", asked Monday evening: Wednesday 09:00, not 20:00.
+        var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z");
+        var (start, _) = AssistantPlanner.ResolveWindow(Intent(date: "2026-10-21"), evening);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-21T08:00:00Z"), start); // 09:00 London
+    }
+
+    [Fact]
     public void Duration_is_clamped_to_sane_bounds()
     {
         var (start, end) = AssistantPlanner.ResolveWindow(Intent(duration: 10_000), Now);

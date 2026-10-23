@@ -3,10 +3,12 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiClient } from '../../core/api-client';
 import { AssistantParseResponse, AssistantProposal, CreateBookingRequest, Resource, ResourceType, toRuleProblem } from '../../core/models';
+import { matchesQuery } from '../../core/search';
+import { SearchBoxComponent } from '../../shared/search-box.component';
 
 @Component({
   selector: 'app-browse',
-  imports: [RouterLink, DatePipe],
+  imports: [RouterLink, DatePipe, SearchBoxComponent],
   templateUrl: './browse.component.html',
   styleUrl: './browse.component.scss',
 })
@@ -16,11 +18,14 @@ export class BrowseComponent {
   protected readonly resources = signal<Resource[]>([]);
   protected readonly filter = signal<ResourceType | 'All'>('All');
   protected readonly filters: (ResourceType | 'All')[] = ['All', 'Room', 'Car', 'Catering'];
+  protected readonly search = signal('');
 
   protected readonly visible = computed(() =>
-    this.filter() === 'All'
-      ? this.resources()
-      : this.resources().filter((r) => r.type === this.filter()),
+    this.resources().filter(
+      (r) =>
+        (this.filter() === 'All' || r.type === this.filter()) &&
+        matchesQuery(this.search(), r.name, r.location, r.description),
+    ),
   );
 
   // ── AI assistant ──
@@ -36,6 +41,10 @@ export class BrowseComponent {
 
   protected typeLabel(type: ResourceType): string {
     return { Room: 'Meeting room', Car: 'Pool car', Catering: 'Catering' }[type];
+  }
+
+  protected onAssistantInput(event: Event): void {
+    this.assistantText.set((event.target as HTMLInputElement).value);
   }
 
   protected ask(): void {

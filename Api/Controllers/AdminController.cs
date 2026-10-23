@@ -14,52 +14,62 @@ public class AdminController(
     IUserService users,
     IBookingService bookings,
     IStatsService stats,
-    IInsightsService insights) : ControllerBase
+    IInsightsService insights,
+    IDemoService demo) : ControllerBase
 {
     // ── resources ──
 
     [HttpPost("resources")]
-    public async Task<ActionResult<ResourceDto>> CreateResource(SaveResourceRequest request)
+    public async Task<ActionResult<ResourceResponse>> CreateResource(SaveResourceRequest request)
     {
         var resource = await resources.CreateAsync(request);
         return Created($"/api/resources/{resource.Id}", resource);
     }
 
     [HttpPut("resources/{id:guid}")]
-    public Task<ResourceDto> UpdateResource(Guid id, SaveResourceRequest request) =>
+    public Task<ResourceResponse> UpdateResource(Guid id, SaveResourceRequest request) =>
         resources.UpdateAsync(id, request);
 
     [HttpGet("resources")]
-    public Task<IReadOnlyList<ResourceDto>> GetAllResources() =>
+    public Task<IReadOnlyList<ResourceResponse>> GetAllResources() =>
         resources.GetAllAsync(type: null, includeInactive: true);
 
     // ── users ──
 
     [HttpGet("users")]
-    public Task<IReadOnlyList<UserDto>> GetUsers() => users.GetAllAsync();
+    public Task<IReadOnlyList<UserResponse>> GetUsers() => users.GetAllAsync();
 
     [HttpPost("users")]
-    public async Task<ActionResult<UserDto>> CreateUser(SaveUserRequest request)
+    public async Task<ActionResult<UserResponse>> CreateUser(SaveUserRequest request)
     {
         var user = await users.CreateAsync(request);
         return Created($"/api/admin/users/{user.Id}", user);
     }
 
     [HttpPut("users/{id:guid}")]
-    public Task<UserDto> UpdateUser(Guid id, SaveUserRequest request) => users.UpdateAsync(id, request);
+    public Task<UserResponse> UpdateUser(Guid id, SaveUserRequest request) => users.UpdateAsync(id, request);
 
     // ── history & stats ──
 
     [HttpGet("bookings")]
-    public Task<IReadOnlyList<BookingDto>> GetHistory(
+    public Task<IReadOnlyList<BookingResponse>> GetHistory(
         [FromQuery] Guid? resourceId, [FromQuery] Guid? userId,
         [FromQuery] DateTimeOffset? from, [FromQuery] DateTimeOffset? to) =>
         bookings.GetHistoryAsync(resourceId, userId, from, to);
 
     [HttpGet("stats/dashboard")]
-    public Task<DashboardDto> GetDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
+    public Task<DashboardResponse> GetDashboard([FromQuery] DateTimeOffset from, [FromQuery] DateTimeOffset to) =>
         stats.GetDashboardAsync(from, to);
 
     [HttpGet("stats/summary")]
-    public Task<InsightsSummaryDto> GetSummary() => insights.GetSummaryAsync();
+    public Task<InsightsSummaryResponse> GetSummary() => insights.GetSummaryAsync();
+
+    // ── demo ──
+
+    [HttpPost("demo/reset")]
+    public async Task<IActionResult> ResetDemoData()
+    {
+        await demo.ResetAsync();
+        return NoContent();
+    }
 }

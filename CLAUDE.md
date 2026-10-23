@@ -8,7 +8,7 @@ users, resources, constraints and see utilisation. .NET 10 API + Angular 22 + Po
 ```bash
 docker compose up -d                 # Postgres on localhost:5455
 cd Api && dotnet run                 # API on http://localhost:5214 (migrates + seeds)
-cd client && npx ng serve            # SPA on http://localhost:4200 (proxies /api + /hubs)
+cd client && npx ng serve            # SPA on http://localhost:4200 (proxies /api)
 
 dotnet build ResourceBooking.sln
 dotnet test                          # unit + integration (integration needs Docker)
@@ -29,8 +29,10 @@ A task is complete only when **all** of these are green. CI runs the same gates.
 ### Backend
 
 - **Two projects only**: `Api` and `Api.Tests`. Layers are folders (`Domain/`, `Data/`,
-  `Services/`, `Controllers/`, `Hubs/`, `Ai/`) with a one-way dependency rule:
-  Controllers → Services → Data/Domain. Domain references nothing.
+  `Services/`, `Controllers/`, `Ai/`) with a one-way dependency rule:
+  Controllers → Services → Data/Domain. Domain references nothing (BCL only).
+- **No realtime channel.** SignalR was removed deliberately (README § Decisions): the
+  grid refetches around mutations, notifications are fetched. Do not reintroduce it.
 - **No MediatR, no handler classes, no repository wrappers, no custom Unit of Work.**
   The EF Core `DbContext` *is* the unit of work. This is a decision; do not "improve" it.
 - Controllers are thin: bind, authorize, call one service method, map to a response.

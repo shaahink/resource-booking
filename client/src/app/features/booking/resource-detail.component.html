@@ -9,6 +9,12 @@
         @if (res.capacity > 1) { {{ res.capacity }} units per slot · }
         {{ res.description }}
       </p>
+      @if (rulesStrip()) {
+        <p class="mt-1.5 text-xs text-slate-400">
+          {{ rulesStrip() }}
+          @if (hasOpeningHours()) { <span class="text-slate-300">·</span> hours are Europe/London, times shown in your local time }
+        </p>
+      }
     </div>
 
     <div class="flex items-center gap-1">
@@ -52,22 +58,30 @@
             <button
               type="button"
               (click)="select(cell)"
-              [disabled]="cell.past || cell.full"
+              [disabled]="cell.past || cell.full || cell.closed"
               class="block h-6 w-full border-b border-slate-50 transition-colors"
               [class]="
                 cell.past
                   ? 'bg-slate-50 cursor-default'
-                  : cell.mine
-                    ? 'bg-indigo-500/80 hover:bg-indigo-500'
-                    : cell.full
-                      ? 'bg-rose-200 cursor-default'
-                      : cell.used > 0
-                        ? 'bg-amber-100 hover:bg-amber-200'
-                        : 'hover:bg-emerald-100'
+                  : cell.closed
+                    ? 'bg-slate-100 cursor-default'
+                    : cell.mine
+                      ? 'bg-indigo-500/80 hover:bg-indigo-500'
+                      : cell.full
+                        ? 'bg-rose-200 cursor-default'
+                        : cell.used > 0
+                          ? 'bg-amber-100 hover:bg-amber-200'
+                          : 'hover:bg-emerald-100'
               "
               [title]="
                 (cell.slot.start | date: 'HH:mm') +
-                (cell.full ? ' — fully booked' : cell.used > 0 ? ' — ' + cell.used + ' booked' : ' — free')
+                (cell.closed
+                  ? ' — closed'
+                  : cell.full
+                    ? ' — fully booked'
+                    : cell.used > 0
+                      ? ' — ' + cell.used + ' booked'
+                      : ' — free')
               "
             ></button>
           }
@@ -84,6 +98,9 @@
       <span class="flex items-center gap-1.5"><span class="size-3 rounded-sm bg-amber-100"></span> Partially booked</span>
     }
     <span class="flex items-center gap-1.5"><span class="size-3 rounded-sm bg-indigo-500/80"></span> Your booking</span>
+    @if (hasOpeningHours()) {
+      <span class="flex items-center gap-1.5"><span class="size-3 rounded-sm bg-slate-100"></span> Closed</span>
+    }
   </div>
 
   @if (selectedSlot(); as slot) {

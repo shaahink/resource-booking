@@ -1,16 +1,23 @@
-<div class="flex items-center justify-between">
+<div class="flex flex-wrap items-center justify-between gap-3">
   <div>
     <h1 class="text-xl font-semibold tracking-tight">Manage resources</h1>
-    <p class="mt-1 text-sm text-slate-500">Resources, their capacity model and booking constraints.</p>
+    <p class="mt-1 text-sm text-slate-500">Resources, their capacity model and booking constraints. Edit changes the row in place; Rules opens the full editor.</p>
   </div>
-  <button
-    type="button"
-    (click)="startNew()"
-    class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
-  >
-    New resource
-  </button>
+  <div class="flex items-center gap-2">
+    <app-search-box [(value)]="search" placeholder="Search resources…" />
+    <button
+      type="button"
+      (click)="startNew()"
+      class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+    >
+      New resource
+    </button>
+  </div>
 </div>
+
+@if (error(); as message) {
+  <p class="mt-3 text-sm text-rose-600">{{ message }}</p>
+}
 
 <div class="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
   <table class="w-full text-sm">
@@ -20,53 +27,138 @@
         <th class="px-3 py-3 font-medium">Type</th>
         <th class="px-3 py-3 font-medium">Capacity</th>
         <th class="px-3 py-3 font-medium">Constraints</th>
+        <th class="px-3 py-3 font-medium">Created</th>
         <th class="px-3 py-3 font-medium">Status</th>
         <th class="px-3 py-3"></th>
       </tr>
     </thead>
     <tbody>
-      @for (resource of resources(); track resource.id) {
-        <tr class="border-b border-slate-50 last:border-0">
-          <td class="px-5 py-3">
-            <div class="font-medium">{{ resource.name }}</div>
-            @if (resource.location) {
-              <div class="text-xs text-slate-400">{{ resource.location }}</div>
-            }
-          </td>
-          <td class="px-3 py-3">{{ resource.type }}</td>
-          <td class="px-3 py-3">
-            {{ resource.capacity === 1 ? 'Exclusive' : resource.capacity + ' units' }}
-            @if (resource.seats) {
-              <span class="text-xs text-slate-400"> · {{ resource.seats }} seats</span>
-            }
-          </td>
-          <td class="px-3 py-3">
-            <div class="flex flex-wrap gap-1">
-              @for (constraint of resource.constraints; track constraint.id) {
-                <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
-                  {{ constraintLabel(constraint.type) }}
-                </span>
-              } @empty {
-                <span class="text-xs text-slate-400">none</span>
+      @for (resource of visible(); track resource.id) {
+        @if (rowDraft(); as row) {
+          @if (row.id === resource.id) {
+            <!-- row in edit mode -->
+            <tr class="border-b border-slate-50 bg-indigo-50/40 last:border-0">
+              <td class="px-5 py-2.5">
+                <input type="text" [(ngModel)]="row.name" class="field !py-1.5" placeholder="Name" />
+                <input type="text" [(ngModel)]="row.location" class="field mt-1 !py-1.5 text-xs" placeholder="Location" />
+              </td>
+              <td class="px-3 py-2.5 align-top">
+                <select [(ngModel)]="row.type" class="field !w-auto !py-1.5">
+                  @for (type of resourceTypes; track type) {
+                    <option [ngValue]="type">{{ type }}</option>
+                  }
+                </select>
+              </td>
+              <td class="px-3 py-2.5 align-top">
+                <div class="flex items-center gap-1.5">
+                  <input type="number" min="1" [(ngModel)]="row.capacity" class="field !w-20 !py-1.5" title="Capacity (1 = exclusive)" />
+                  <input type="number" min="1" [(ngModel)]="row.seats" class="field !w-20 !py-1.5" placeholder="seats" title="Seats (rooms)" />
+                </div>
+              </td>
+              <td class="px-3 py-2.5 align-top text-xs text-slate-400">edit via Rules</td>
+              <td class="px-3 py-2.5 align-top text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+              <td class="px-3 py-2.5 align-top">
+                <label class="flex items-center gap-1.5 text-xs">
+                  <input type="checkbox" [(ngModel)]="row.isActive" class="size-3.5 accent-indigo-600" />
+                  Active
+                </label>
+              </td>
+              <td class="px-3 py-2.5 text-right align-top whitespace-nowrap">
+                <button
+                  type="button"
+                  (click)="saveRow()"
+                  [disabled]="saving() || !rowValid(row)"
+                  class="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {{ saving() ? 'Saving…' : 'Save' }}
+                </button>
+                <button
+                  type="button"
+                  (click)="rowDraft.set(null)"
+                  class="rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+              </td>
+            </tr>
+          } @else {
+            <!-- another row is being edited; render read-only without actions -->
+            <tr class="border-b border-slate-50 opacity-50 last:border-0">
+              <td class="px-5 py-3">
+                <div class="font-medium">{{ resource.name }}</div>
+                @if (resource.location) {
+                  <div class="text-xs text-slate-400">{{ resource.location }}</div>
+                }
+              </td>
+              <td class="px-3 py-3">{{ resource.type }}</td>
+              <td class="px-3 py-3">{{ resource.capacity === 1 ? 'Exclusive' : resource.capacity + ' units' }}</td>
+              <td class="px-3 py-3"></td>
+              <td class="px-3 py-3 text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+              <td class="px-3 py-3"></td>
+              <td></td>
+            </tr>
+          }
+        } @else {
+          <tr class="border-b border-slate-50 last:border-0">
+            <td class="px-5 py-3">
+              <div class="font-medium">{{ resource.name }}</div>
+              @if (resource.location) {
+                <div class="text-xs text-slate-400">{{ resource.location }}</div>
               }
-            </div>
-          </td>
-          <td class="px-3 py-3">
-            <span
-              class="rounded-full px-2 py-0.5 text-xs"
-              [class]="resource.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'"
-            >
-              {{ resource.isActive ? 'Active' : 'Inactive' }}
-            </span>
-          </td>
-          <td class="px-3 py-3 text-right">
-            <button
-              type="button"
-              (click)="startEdit(resource)"
-              class="rounded-lg px-3 py-1 text-xs text-indigo-600 transition hover:bg-indigo-50"
-            >
-              Edit
-            </button>
+            </td>
+            <td class="px-3 py-3">{{ resource.type }}</td>
+            <td class="px-3 py-3">
+              {{ resource.capacity === 1 ? 'Exclusive' : resource.capacity + ' units' }}
+              @if (resource.seats) {
+                <span class="text-xs text-slate-400"> · {{ resource.seats }} seats</span>
+              }
+            </td>
+            <td class="px-3 py-3">
+              <div class="flex flex-wrap gap-1">
+                @for (constraint of resource.constraints; track constraint.id) {
+                  <span
+                    class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600"
+                    [title]="constraintLabel(constraint.type)"
+                  >
+                    {{ constraintChip(constraint) }}
+                  </span>
+                } @empty {
+                  <span class="text-xs text-slate-400">none</span>
+                }
+              </div>
+            </td>
+            <td class="px-3 py-3 text-xs text-slate-400">{{ resource.createdOn | date: 'd MMM yyyy' }}</td>
+            <td class="px-3 py-3">
+              <span
+                class="rounded-full px-2 py-0.5 text-xs"
+                [class]="resource.isActive ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'"
+              >
+                {{ resource.isActive ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="px-3 py-3 text-right whitespace-nowrap">
+              <button
+                type="button"
+                (click)="startRowEdit(resource)"
+                class="rounded-lg px-3 py-1 text-xs text-indigo-600 transition hover:bg-indigo-50"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                (click)="startEdit(resource)"
+                class="rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100"
+              >
+                Rules
+              </button>
+            </td>
+          </tr>
+        }
+      } @empty {
+        <tr>
+          <td colspan="7" class="px-5 py-8 text-center text-sm text-slate-400">
+            @if (search()) { Nothing matches “{{ search() }}”. }
+            @else { No resources yet. }
           </td>
         </tr>
       }
@@ -74,7 +166,7 @@
   </table>
 </div>
 
-<!-- Edit drawer -->
+<!-- Edit drawer: description + booking rules (and everything else, for New resource) -->
 @if (draft(); as d) {
   <div class="fixed inset-0 z-40 flex justify-end">
     <button type="button" class="absolute inset-0 bg-slate-900/40" aria-label="Close editor" (click)="draft.set(null)"></button>
@@ -123,7 +215,7 @@
           <select
             #addSelect
             class="rounded-lg border border-slate-300 px-2 py-1 text-xs"
-            (change)="addConstraint($any(addSelect.value)); addSelect.value = ''"
+            (change)="addConstraint(addSelect.value); addSelect.value = ''"
           >
             <option value="" disabled selected>+ Add constraint…</option>
             @for (type of constraintTypes; track type) {
@@ -162,6 +254,9 @@
                       to
                       <input type="time" [(ngModel)]="constraint.close" class="field !w-auto !py-1" />
                     </div>
+                    @if (constraint.open >= constraint.close) {
+                      <p class="mt-1 text-xs text-rose-600">Closing time must be after opening time.</p>
+                    }
                   }
                   @case ('MaxAdvanceDays') {
                     <input type="number" min="1" [(ngModel)]="constraint.days" class="field !w-28" />
@@ -199,7 +294,7 @@
         <button
           type="button"
           (click)="save()"
-          [disabled]="saving() || !d.name.trim()"
+          [disabled]="saving() || !draftValid(d)"
           class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
         >
           {{ saving() ? 'Saving…' : 'Save resource' }}

@@ -50,7 +50,8 @@ public class BookingRulesTests
         IReadOnlyList<ResourceConstraint>? constraints = null,
         IReadOnlyList<Booking>? overlapping = null,
         IReadOnlyList<Booking>? usersUpcoming = null,
-        User? user = null) =>
+        User? user = null,
+        DateTimeOffset? now = null) =>
         new(
             resource ?? Room(),
             constraints ?? [],
@@ -60,7 +61,7 @@ public class BookingRulesTests
             quantity,
             overlapping ?? [],
             usersUpcoming ?? [],
-            Now);
+            now ?? Now);
 
     private static string[] Codes(IReadOnlyList<RuleViolation> violations) =>
         violations.Select(v => v.Code).OrderBy(c => c).ToArray();
@@ -104,6 +105,23 @@ public class BookingRulesTests
     {
         var result = _rules.Validate(Context(resource: Room(isActive: false)));
         Assert.Equal([RuleCodes.InactiveResource], Codes(result));
+    }
+
+    // ── time has passed ─────────────────────────────────────────────────
+
+    [Fact]
+    public void Booking_entirely_in_the_past_is_rejected()
+    {
+        var result = _rules.Validate(Context(start: Now.AddHours(-2), end: Now.AddHours(-1)));
+        Assert.Equal([RuleCodes.InThePast], Codes(result));
+    }
+
+    [Fact]
+    public void Booking_in_the_currently_running_slot_is_allowed()
+    {
+        // Started 15 minutes ago but still running: End > Now, matching the grid's "past" shading.
+        var result = _rules.Validate(Context(start: Now.AddMinutes(-15), end: Now.AddMinutes(15)));
+        Assert.Empty(result);
     }
 
     // ── overlap & capacity ──────────────────────────────────────────────
@@ -254,7 +272,8 @@ public class BookingRulesTests
         var result = _rules.Validate(Context(
             start: DateTimeOffset.Parse("2026-03-30T07:00:00Z"),
             end: DateTimeOffset.Parse("2026-03-30T08:00:00Z"),
-            constraints: [Constraint(ConstraintType.OpeningHours, Weekdays8To20)]));
+            constraints: [Constraint(ConstraintType.OpeningHours, Weekdays8To20)],
+            now: DateTimeOffset.Parse("2026-03-29T12:00:00Z")));
         Assert.Empty(result);
     }
 

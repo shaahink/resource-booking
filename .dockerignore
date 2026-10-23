@@ -1,0 +1,13 @@
+# Keep the build context lean and, critically, keep the host's node_modules
+# (win32 native binaries) and build output out of the Linux image layers.
+**/node_modules
+**/dist
+**/.angular
+**/bin
+**/obj
+**/.vscode
+.git
+.vs
+.env
+Api.Tests
+docs

@@ -21,7 +21,7 @@
         <span class="mb-1 block text-xs font-medium text-slate-600">Duration</span>
         <select
           [value]="durationMinutes()"
-          (change)="durationMinutes.set(+$any($event.target).value)"
+          (change)="onDurationChange($event)"
           class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
         >
           @for (minutes of durations; track minutes) {
@@ -42,9 +42,13 @@
             min="1"
             [max]="resource().capacity"
             [value]="quantity()"
-            (input)="quantity.set(+$any($event.target).value)"
-            class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            (input)="onQuantityInput($event)"
+            class="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-indigo-500"
+            [class]="quantityError() ? 'border-rose-300' : 'border-slate-300'"
           />
+          @if (quantityError(); as message) {
+            <span class="mt-1 block text-xs text-rose-600">{{ message }}</span>
+          }
         </label>
       }
 
@@ -54,7 +58,7 @@
           type="text"
           maxlength="500"
           [value]="notes()"
-          (input)="notes.set($any($event.target).value)"
+          (input)="onNotesInput($event)"
           placeholder="e.g. Quarterly review"
           class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
         />
@@ -80,7 +84,7 @@
       <button
         type="button"
         (click)="submit()"
-        [disabled]="busy()"
+        [disabled]="!canSubmit()"
         class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
       >
         {{ busy() ? 'Booking…' : 'Confirm booking' }}

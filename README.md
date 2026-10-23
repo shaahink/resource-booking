@@ -14,7 +14,7 @@ Built for the Aries / Add-On Products engineering case study.
 ```bash
 docker compose up -d        # Postgres 17 on localhost:5455
 cd Api && dotnet run        # API on http://localhost:5214 — migrates + seeds demo data
-cd client && npx ng serve   # SPA on http://localhost:4200 (proxies /api and /hubs)
+cd client && npx ng serve   # SPA on http://localhost:4200 (proxies /api)
 ```
 
 Needs .NET 10, Node 24+, Docker. `OPENAI_API_KEY` in the environment enables the two AI
@@ -30,8 +30,9 @@ Testcontainers, so Docker must be running) and `cd client && npx ng test`.
 | Browse + book rooms, cars and catering on a week availability grid | The core job: removes the email/spreadsheet round-trip for shared resources |
 | Typed booking constraints per resource (duration, notice, advance window, opening hours, per-user limits) | Facilities encode policy once instead of policing it; users get told the rule, not just "no" |
 | Double-booking prevention at two layers (app + database) | Trust: the one failure booking software is never forgiven |
-| Live availability + in-app notifications (SignalR) | Two people looking at one room see the same truth; a cancelled booking tells its owner immediately |
-| Utilisation dashboard + usage history | Makes the data actionable: which rooms are wasted, when peak load hits, who the heavy users are |
+| The grid shows the rules it enforces (closed hours shaded, the constraint strip said out loud) | Users see *why* a slot is off the table before they click, not after |
+| In-app notifications | A booking cancelled by an admin tells its owner, with the reason trail in one place |
+| Utilisation dashboard + usage history, free-text search on every list | Makes the data actionable: which rooms are wasted, when peak load hits, who the heavy users are |
 | NL booking assistant (*"book a room for 6 tomorrow 2pm"*) | Fastest path from intent to booking — and every AI proposal passes the same rules as the form |
 | AI utilisation digest for admins | The numbers, narrated — what a facilities manager would tell their boss |
 | One-click demo login, realistic seeded fortnight | Reviewers see a living product in ten seconds, with real role enforcement behind it |
@@ -43,13 +44,13 @@ client/  Angular 22 — standalone components, signals, Tailwind v4
          features → ApiClient (abstract) → HTTP | in-memory mock (one flag)
 Api/     .NET 10 — Controllers → Services → EF Core → PostgreSQL 17
          Domain/ (entities + BookingRules)   Ai/ (assistant + insights)
-         Hubs/ (SignalR)                     Data/ (DbContext, migrations, seed)
+         Data/ (DbContext, migrations, seed)
 ```
 
 One container in production: the Angular build is served from ASP.NET's `wwwroot`, so
-there is one URL, no CORS, and cookie auth just works. The REST + SignalR contract is
-frozen in [`docs/contracts.md`](docs/contracts.md) and mirrored across the C# DTOs and
-the TypeScript models.
+there is one URL, no CORS, and cookie auth just works. The REST contract is frozen in
+[`docs/contracts.md`](docs/contracts.md) and mirrored across the C# request/response
+models and the TypeScript models.
 
 ### Decisions, and the roads not taken
 
@@ -72,6 +73,15 @@ the TypeScript models.
 - **Errors are RFC 7807 ProblemDetails everywhere**, with machine-readable rule codes in
   a `violations` extension (409 = collision, 422 = other rule failures), so the client
   renders the server's reasons instead of inventing its own.
+- **No realtime channel.** An earlier iteration ran SignalR for live grid updates and
+  notification toasts; it was cut to keep the system lean — the grid refetches around
+  every mutation, notifications are fetched, and there is one less stateful piece to
+  operate and reason about. For this product the trade is right; it would come back
+  behind the same service seam if two-people-one-room staleness ever mattered more.
+- **Desktop-first.** Facilities booking is a desk task; the grid scrolls on a phone but
+  the layout is not responsive, and that is a scoped decision rather than an oversight.
+- **Capacity edits apply to new bookings.** Existing rows keep the exclusivity flag they
+  were created with; the service-layer check still guards them.
 
 ## The booking rules engine
 
@@ -113,21 +123,38 @@ The model is **never trusted and never required**:
   passing proposals are shown, and confirming one goes through the normal booking path.
   Small models are poor at weekday arithmetic, so the prompt carries a 14-day calendar
   — verified live ("Monday" resolved to the wrong day without it, the right one with it).
-- The **insights digest** narrates numbers computed by `StatsService`; it is labelled as
-  AI-generated and asked to add nothing the data does not contain.
+- The **insights digest** narrates numbers computed by `StatsService` through a strict
+  schema (headline / highlights / suggested action, so the card formats instead of
+  dumping a blob); it is labelled as AI-generated and asked to add nothing the data
+  does not contain. The payload carries resource names and counts only — employee
+  names never leave the system.
 - The key lives in the `OPENAI_API_KEY` environment variable only. Keyless deployments
   (and CI, by design) get 503s and a UI that says so — covered by an integration test.
   Model calls have timeouts and fail soft to the grid.
 
+## Deploy
+
+One container (see `Dockerfile` — Angular build served from `wwwroot`) plus a managed
+PostgreSQL. The app migrates and seeds on boot (single-replica assumption, stated
+deliberately), so a fresh database becomes a living demo on first start.
+
+- `ConnectionStrings__Default` — the Postgres connection string
+- `OPENAI_API_KEY` — optional; without it the two AI features degrade to 503 + explained UI
+- `/health` answers only when the database does
+- `POST /api/admin/demo/reset` (admin, or the dashboard button) restores the seeded
+  demo after visitors have played with it
+
 ## Testing
 
-- **37 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
-  exact-capacity fit, one-unit-over, DST transition day, closed days, malformed
-  constraint params disabling only themselves) and the assistant's planner.
-- **11 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
-  the concurrency race, cancellation + notification, availability, dashboard, AI 503s.
-- **8 frontend tests** — the grid slot math (mirroring the server's strict overlap
-  semantics) and component creation.
+- **40 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
+  exact-capacity fit, one-unit-over, past bookings vs the running slot, DST transition
+  day, closed days, malformed constraint params disabling only themselves) and the
+  assistant's planner.
+- **13 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
+  the concurrency race, cancellation + notification, past-booking rejection, duplicate
+  email → 409, availability, dashboard, AI 503s.
+- **11 frontend tests** — the grid slot math and closed-cell logic (mirroring the
+  server's strict overlap and opening-hours semantics) and component creation.
 - CI (GitHub Actions) runs format, build, both test suites and lint on every push —
   the same gates the agent had to satisfy during development (see below).
 

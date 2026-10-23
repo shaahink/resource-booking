@@ -17,7 +17,6 @@ namespace Api.Services;
 /// </summary>
 public class BookingRulesService : IBookingRules
 {
-    private static readonly TimeZoneInfo London = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     public IReadOnlyList<RuleViolation> Validate(BookingContext context)
@@ -44,6 +43,11 @@ public class BookingRulesService : IBookingRules
         }
 
         if (!structurallySound) return violations;
+
+        // End, not Start: the half-hour that is currently running stays bookable,
+        // matching the grid's definition of "past" (slot.end <= now).
+        if (context.End <= context.Now)
+            violations.Add(new(RuleCodes.InThePast, "This time has already passed."));
 
         CheckCapacity(context, violations);
 
@@ -127,11 +131,13 @@ public class BookingRulesService : IBookingRules
     {
         if (TryParse<OpeningHoursParams>(constraint) is not { Days: not null } p) return;
 
-        var localStart = TimeZoneInfo.ConvertTime(context.Start, London);
-        var localEnd = TimeZoneInfo.ConvertTime(context.End, London);
+        var localStart = BusinessTime.ToLocal(context.Start);
+        var localEnd = BusinessTime.ToLocal(context.End);
 
-        // A booking must sit inside one window of its (local) starting day.
-        if (localStart.Date != localEnd.Date && localEnd != localStart.Date.AddDays(1))
+        // A booking must sit inside one window of its (local) starting day. Compare the
+        // local DateTime, not the DateTimeOffset — the implicit conversion would re-read
+        // the wall-clock in the server's zone and break in a UTC container.
+        if (localStart.Date != localEnd.Date && localEnd.DateTime != localStart.Date.AddDays(1))
         {
             violations.Add(new(RuleCodes.OutsideOpeningHours, "Bookings cannot span multiple days."));
             return;

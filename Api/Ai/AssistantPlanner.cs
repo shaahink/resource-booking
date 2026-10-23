@@ -18,40 +18,49 @@ public record BookingIntent(
 /// <summary>Pure intent → concrete window/quantity resolution, unit-tested without any AI in the loop.</summary>
 public static class AssistantPlanner
 {
-    private static readonly TimeZoneInfo London = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
+    private static readonly TimeOnly MorningStart = new(9, 0);
+    private const int EveningCutoffHour = 18;
+    private const int DefaultDurationMinutes = 60;
+    private const int MinDurationMinutes = 15;
+    private const int MaxDurationMinutes = 8 * 60;
 
-    /// <summary>Resolve the requested window in UTC. Defaults: next full hour today (or tomorrow
-    /// 09:00 when the day is over), 60 minutes.</summary>
+    /// <summary>Resolve the requested window in UTC. Defaults when no time is given: a future
+    /// date means its morning; today means the next full hour (or tomorrow morning when the
+    /// working day is over). Duration defaults to an hour, clamped to sane bounds.</summary>
     public static (DateTimeOffset Start, DateTimeOffset End) ResolveWindow(BookingIntent intent, DateTimeOffset now)
     {
-        var localNow = TimeZoneInfo.ConvertTime(now, London);
+        var localNow = BusinessTime.ToLocal(now);
+        var today = DateOnly.FromDateTime(localNow.DateTime);
 
-        var date = DateOnly.TryParse(intent.Date, out var parsedDate)
-            ? parsedDate
-            : DateOnly.FromDateTime(localNow.DateTime);
+        var date = DateOnly.TryParse(intent.Date, out var parsedDate) ? parsedDate : today;
 
         TimeOnly time;
         if (TimeOnly.TryParse(intent.StartTime, out var parsedTime))
         {
             time = parsedTime;
         }
+        else if (date != today)
+        {
+            // "book a room on Friday" means Friday morning, not Friday at the current hour.
+            time = MorningStart;
+        }
         else
         {
             var nextFullHour = localNow.Hour + 1;
-            if (nextFullHour >= 18 && intent.Date is null)
+            if (nextFullHour >= EveningCutoffHour)
             {
                 date = date.AddDays(1);
-                time = new TimeOnly(9, 0);
+                time = MorningStart;
             }
             else
             {
-                time = new TimeOnly(Math.Min(nextFullHour, 23), 0);
+                time = new TimeOnly(nextFullHour, 0);
             }
         }
 
         var local = date.ToDateTime(time, DateTimeKind.Unspecified);
-        var start = new DateTimeOffset(local, London.GetUtcOffset(local)).ToUniversalTime();
-        var duration = Math.Clamp(intent.DurationMinutes ?? 60, 15, 8 * 60);
+        var start = new DateTimeOffset(local, BusinessTime.Zone.GetUtcOffset(local)).ToUniversalTime();
+        var duration = Math.Clamp(intent.DurationMinutes ?? DefaultDurationMinutes, MinDurationMinutes, MaxDurationMinutes);
         return (start, start.AddMinutes(duration));
     }
 

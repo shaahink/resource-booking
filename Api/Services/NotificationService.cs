@@ -6,18 +6,20 @@ namespace Api.Services;
 
 public interface INotificationService
 {
-    Task<IReadOnlyList<NotificationDto>> GetForUserAsync(Guid userId);
+    Task<IReadOnlyList<NotificationResponse>> GetForUserAsync(Guid userId);
     Task MarkReadAsync(Guid userId, Guid notificationId);
 }
 
 public class NotificationService(AppDbContext db) : INotificationService
 {
-    public async Task<IReadOnlyList<NotificationDto>> GetForUserAsync(Guid userId) =>
+    private const int MaxReturned = 50;
+
+    public async Task<IReadOnlyList<NotificationResponse>> GetForUserAsync(Guid userId) =>
         await db.Notifications.AsNoTracking()
             .Where(n => n.UserId == userId)
-            .OrderByDescending(n => n.CreatedAt)
-            .Take(50)
-            .Select(n => new NotificationDto(n.Id, n.Type, n.Message, n.BookingId, n.CreatedAt, n.ReadAt))
+            .OrderByDescending(n => n.CreatedOn)
+            .Take(MaxReturned)
+            .Select(n => new NotificationResponse(n.Id, n.Type, n.Message, n.BookingId, n.CreatedOn, n.ReadAt))
             .ToListAsync();
 
     public async Task MarkReadAsync(Guid userId, Guid notificationId)

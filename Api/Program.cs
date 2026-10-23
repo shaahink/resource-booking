@@ -1,7 +1,6 @@
 using Api.Ai;
 using Api.Data;
 using Api.Domain;
-using Api.Hubs;
 using Api.Services;
 using System.Text.Json.Serialization;
 using FluentValidation;
@@ -38,8 +37,7 @@ builder.Services.AddControllers(options => options.Filters.Add<ValidationFilter>
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddProblemDetails();
-builder.Services.AddSignalR();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<DbHealthCheck>("database");
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -51,6 +49,7 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IDemoService, DemoService>();
 
 // AI (gpt-4.1-nano). Key from the environment only; without one the endpoints return 503
 // and the UI hides the features.
@@ -80,7 +79,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHub<BookingsHub>("/hubs/bookings");
 app.MapHealthChecks("/health");
 app.MapFallbackToFile("index.html");
 

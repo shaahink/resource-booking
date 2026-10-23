@@ -13,7 +13,7 @@ public interface IAssistantService
 }
 
 /// <summary>
-/// The NL booking assistant. gpt-4.1-nano does exactly one job — turn free text into a
+/// The NL booking assistant. The model does exactly one job — turn free text into a
 /// BookingIntent via a strict JSON schema. Everything after that is deterministic server
 /// code: candidate ranking, window resolution, and a BookingRules dry-run per candidate.
 /// A proposal the user sees has already passed the same validation a form booking would.
@@ -24,7 +24,8 @@ public class AssistantService(
     IBookingRules rules,
     ILogger<AssistantService> logger) : IAssistantService
 {
-    private static readonly TimeZoneInfo London = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
+    private const int MaxProposals = 3;
+    private static readonly TimeSpan ModelTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private const string IntentSchema = """
@@ -55,55 +56,76 @@ public class AssistantService(
                 []);
         }
 
+        var user = await db.Users.AsNoTracking().FirstAsync(u => u.Id == userId);
         var resources = await db.Resources.AsNoTracking()
             .Include(r => r.Constraints)
             .Where(r => r.IsActive)
             .ToListAsync();
-        var user = await db.Users.AsNoTracking().FirstAsync(u => u.Id == userId);
 
         var now = DateTimeOffset.UtcNow;
         var (start, end) = AssistantPlanner.ResolveWindow(intent, now);
         var candidates = AssistantPlanner.RankCandidates(intent, resources);
 
-        var proposals = new List<AssistantProposalDto>();
+        var (proposals, firstRejection) = await ProposeAsync(candidates, intent, user, start, end, now);
+        return new AssistantParseResponse(Summarise(start, end, proposals, firstRejection), proposals);
+    }
+
+    /// <summary>Dry-run each candidate through the rule engine, best fit first, until
+    /// enough proposals pass. The first rejection is kept so "nothing free" can say why.</summary>
+    private async Task<(List<AssistantProposalResponse> Proposals, IReadOnlyList<RuleViolation> FirstRejection)> ProposeAsync(
+        IReadOnlyList<Resource> candidates, BookingIntent intent, User user,
+        DateTimeOffset start, DateTimeOffset end, DateTimeOffset now)
+    {
+        var proposals = new List<AssistantProposalResponse>();
         IReadOnlyList<RuleViolation> firstRejection = [];
+
         foreach (var resource in candidates)
         {
-            if (proposals.Count == 3) break;
+            if (proposals.Count == MaxProposals) break;
 
             var quantity = AssistantPlanner.ResolveQuantity(intent, resource);
-            var overlapping = await db.Bookings.AsNoTracking()
-                .Where(b => b.ResourceId == resource.Id
-                            && b.Status == BookingStatus.Confirmed
-                            && b.Start < end && b.End > start)
-                .ToListAsync();
-            var usersUpcoming = await db.Bookings.AsNoTracking()
-                .Where(b => b.ResourceId == resource.Id
-                            && b.UserId == userId
-                            && b.Status == BookingStatus.Confirmed
-                            && b.End > now)
-                .ToListAsync();
-
-            var violations = rules.Validate(new BookingContext(
-                resource, resource.Constraints, user, start, end, quantity,
-                overlapping, usersUpcoming, now));
+            var violations = await DryRunAsync(resource, user, start, end, quantity, now);
 
             if (violations.Count == 0)
-            {
-                proposals.Add(new AssistantProposalDto(resource.Id, resource.Name, start, end, quantity));
-            }
+                proposals.Add(new AssistantProposalResponse(resource.Id, resource.Name, start, end, quantity));
             else if (firstRejection.Count == 0)
-            {
                 firstRejection = violations;
-            }
         }
 
-        var localStart = TimeZoneInfo.ConvertTime(start, London);
+        return (proposals, firstRejection);
+    }
+
+    /// <summary>The same data-gathering a real booking would do, followed by the same Validate.</summary>
+    private async Task<IReadOnlyList<RuleViolation>> DryRunAsync(
+        Resource resource, User user, DateTimeOffset start, DateTimeOffset end, int quantity, DateTimeOffset now)
+    {
+        var overlapping = await db.Bookings.AsNoTracking()
+            .Where(b => b.ResourceId == resource.Id
+                        && b.Status == BookingStatus.Confirmed
+                        && b.Start < end && b.End > start)
+            .ToListAsync();
+        var usersUpcoming = await db.Bookings.AsNoTracking()
+            .Where(b => b.ResourceId == resource.Id
+                        && b.UserId == user.Id
+                        && b.Status == BookingStatus.Confirmed
+                        && b.End > now)
+            .ToListAsync();
+
+        return rules.Validate(new BookingContext(
+            resource, resource.Constraints, user, start, end, quantity,
+            overlapping, usersUpcoming, now));
+    }
+
+    private static string Summarise(
+        DateTimeOffset start, DateTimeOffset end,
+        IReadOnlyList<AssistantProposalResponse> proposals, IReadOnlyList<RuleViolation> firstRejection)
+    {
+        var localStart = BusinessTime.ToLocal(start);
+        if (proposals.Count > 0)
+            return $"Free for {localStart:ddd d MMM HH:mm}–{BusinessTime.ToLocal(end):HH:mm} — pick one to book:";
+
         var reason = firstRejection.Count > 0 ? $" {firstRejection[0].Message}" : string.Empty;
-        var summary = proposals.Count > 0
-            ? $"Free for {localStart:ddd d MMM HH:mm}–{TimeZoneInfo.ConvertTime(end, London):HH:mm} — pick one to book:"
-            : $"Nothing free matched {localStart:ddd d MMM HH:mm}.{reason} Try another time, or the availability grid.";
-        return new AssistantParseResponse(summary, proposals);
+        return $"Nothing free matched {localStart:ddd d MMM HH:mm}.{reason} Try another time, or the availability grid.";
     }
 
     /// <summary>Small models are unreliable at weekday arithmetic — hand them the answer sheet.</summary>
@@ -112,7 +134,7 @@ public class AssistantService(
 
     private async Task<BookingIntent?> ExtractIntentAsync(string text)
     {
-        var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, London);
+        var localNow = BusinessTime.ToLocal(DateTimeOffset.UtcNow);
         var client = new ChatClient(options.Model, options.ApiKey);
 
         var completionOptions = new ChatCompletionOptions
@@ -135,7 +157,7 @@ public class AssistantService(
                     new UserChatMessage(text),
                 ],
                 completionOptions,
-                new CancellationTokenSource(TimeSpan.FromSeconds(15)).Token);
+                new CancellationTokenSource(ModelTimeout).Token);
 
             return JsonSerializer.Deserialize<BookingIntent>(completion.Content[0].Text, JsonOptions);
         }

@@ -17,6 +17,7 @@ export class DashboardComponent {
   protected readonly dashboard = signal<Dashboard | null>(null);
   protected readonly insights = signal<InsightsSummary | null>(null);
   protected readonly insightsError = signal<string | null>(null);
+  protected readonly resetting = signal(false);
 
   protected readonly busiest = computed(() => {
     const rows = this.dashboard()?.utilisation ?? [];
@@ -60,6 +61,22 @@ export class DashboardComponent {
             ? 'AI insights are not configured on this deployment.'
             : 'Could not generate insights right now.',
         ),
+    });
+  }
+
+  /** The demo is public and editable by design; this puts the seeded fortnight back. */
+  protected resetDemo(): void {
+    if (this.resetting()) return;
+    if (!confirm('Reset the demo? All bookings, resources and users return to the seeded state.')) return;
+
+    this.resetting.set(true);
+    this.api.resetDemoData().subscribe({
+      next: () => {
+        this.resetting.set(false);
+        this.load();
+        this.loadInsights();
+      },
+      error: () => this.resetting.set(false),
     });
   }
 

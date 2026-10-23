@@ -3,12 +3,14 @@ import { Booking, Resource, User } from './models';
 // Mirror of Api/Data/SeedData.cs — same ids, same shape, smaller booking set.
 // Keeping ids identical means deep links built against mocks keep working on the real API.
 
+const PROVISIONED_ON = new Date(Date.now() - 90 * 86_400_000).toISOString();
+
 export const MOCK_USERS: User[] = [
-  { id: '00000000-0000-0000-0000-000000000001', name: 'Priya Sharma', email: 'priya@demo.local', role: 'Admin' },
-  { id: '00000000-0000-0000-0000-000000000002', name: 'Tom Hale', email: 'tom@demo.local', role: 'User' },
-  { id: '00000000-0000-0000-0000-000000000003', name: 'Maya Chen', email: 'maya@demo.local', role: 'User' },
-  { id: '00000000-0000-0000-0000-000000000004', name: 'Jonas Weber', email: 'jonas@demo.local', role: 'User' },
-  { id: '00000000-0000-0000-0000-000000000005', name: 'Sofia Rossi', email: 'sofia@demo.local', role: 'User' },
+  { id: '00000000-0000-0000-0000-000000000001', name: 'Priya Sharma', email: 'priya@demo.local', role: 'Admin', isActive: true, createdOn: PROVISIONED_ON },
+  { id: '00000000-0000-0000-0000-000000000002', name: 'Tom Hale', email: 'tom@demo.local', role: 'User', isActive: true, createdOn: PROVISIONED_ON },
+  { id: '00000000-0000-0000-0000-000000000003', name: 'Maya Chen', email: 'maya@demo.local', role: 'User', isActive: true, createdOn: PROVISIONED_ON },
+  { id: '00000000-0000-0000-0000-000000000004', name: 'Jonas Weber', email: 'jonas@demo.local', role: 'User', isActive: true, createdOn: PROVISIONED_ON },
+  { id: '00000000-0000-0000-0000-000000000005', name: 'Sofia Rossi', email: 'sofia@demo.local', role: 'User', isActive: true, createdOn: PROVISIONED_ON },
 ];
 
 const openingHoursWeekdays = JSON.stringify({
@@ -31,6 +33,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: '1st floor',
     description: 'Large meeting room with video conferencing and whiteboard wall.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [
       { id: 'c1', type: 'OpeningHours', paramsJson: openingHoursWeekdays },
       { id: 'c2', type: 'MaxAdvanceDays', paramsJson: '{"days":60}' },
@@ -45,6 +48,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: '2nd floor',
     description: 'Small huddle room for quick syncs.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [
       { id: 'c3', type: 'OpeningHours', paramsJson: openingHoursWeekdays },
       { id: 'c4', type: 'MaxDurationMinutes', paramsJson: '{"minutes":120}' },
@@ -59,6 +63,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: '2nd floor',
     description: 'Small huddle room next to the kitchen.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [
       { id: 'c5', type: 'OpeningHours', paramsJson: openingHoursWeekdays },
       { id: 'c6', type: 'MaxDurationMinutes', paramsJson: '{"minutes":120}' },
@@ -73,6 +78,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: 'Ground floor',
     description: 'Training and workshop space with movable desks.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [{ id: 'c7', type: 'OpeningHours', paramsJson: openingHoursWeekdays }],
   },
   {
@@ -84,6 +90,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: 'Car park B2',
     description: 'Electric hatchback, ~250 km range.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [
       { id: 'c8', type: 'MaxActiveBookingsPerUser', paramsJson: '{"count":2}' },
       { id: 'c9', type: 'MinNoticeMinutes', paramsJson: '{"minutes":60}' },
@@ -98,6 +105,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: 'Car park B2',
     description: 'Estate car for equipment transport.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [
       { id: 'c10', type: 'MaxActiveBookingsPerUser', paramsJson: '{"count":2}' },
       { id: 'c11', type: 'MinNoticeMinutes', paramsJson: '{"minutes":60}' },
@@ -112,6 +120,7 @@ export const MOCK_RESOURCES: Resource[] = [
     location: 'Kitchen',
     description: 'Catered lunch portions; book the number of meals you need.',
     isActive: true,
+    createdOn: PROVISIONED_ON,
     constraints: [{ id: 'c12', type: 'MinNoticeMinutes', paramsJson: '{"minutes":1440}' }],
   },
 ];
@@ -152,7 +161,7 @@ export function generateMockBookings(): Booking[] {
       quantity,
       status: 'Confirmed',
       notes: null,
-      createdAt: at(dayOffset - 2, 9).toISOString(),
+      createdOn: at(dayOffset - 2, 9).toISOString(),
     });
   };
 

@@ -22,6 +22,11 @@ public class User
     public required string Name { get; set; }
     public required string Email { get; set; }
     public UserRole Role { get; set; }
+
+    /// <summary>Disabled users keep their history but cannot sign in.</summary>
+    public bool IsActive { get; set; } = true;
+
+    public DateTimeOffset CreatedOn { get; set; }
     public List<Booking> Bookings { get; set; } = [];
 }
 
@@ -40,6 +45,7 @@ public class Resource
     public string? Location { get; set; }
     public string? Description { get; set; }
     public bool IsActive { get; set; } = true;
+    public DateTimeOffset CreatedOn { get; set; }
     public List<ResourceConstraint> Constraints { get; set; } = [];
     public List<Booking> Bookings { get; set; } = [];
 }
@@ -68,7 +74,7 @@ public class Booking
     public bool IsExclusive { get; set; }
 
     public string? Notes { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset CreatedOn { get; set; }
     public DateTimeOffset? CancelledAt { get; set; }
 
     public Resource? Resource { get; set; }
@@ -82,6 +88,6 @@ public class Notification
     public Guid? BookingId { get; set; }
     public required string Type { get; set; }
     public required string Message { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset CreatedOn { get; set; }
     public DateTimeOffset? ReadAt { get; set; }
 }

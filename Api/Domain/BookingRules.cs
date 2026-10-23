@@ -7,6 +7,7 @@ namespace Api.Domain;
 public static class RuleCodes
 {
     public const string InvalidRange = "invalid_range";
+    public const string InThePast = "in_the_past";
     public const string QuantityInvalid = "quantity_invalid";
     public const string InactiveResource = "inactive_resource";
     public const string OverlapConflict = "overlap_conflict";

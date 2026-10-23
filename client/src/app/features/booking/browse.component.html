@@ -7,7 +7,7 @@
     <input
       type="text"
       [value]="assistantText()"
-      (input)="assistantText.set($any($event.target).value)"
+      (input)="onAssistantInput($event)"
       placeholder="Try: book a room for 6 people tomorrow 14:00–15:00"
       class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-indigo-500"
     />
@@ -54,8 +54,8 @@
   }
 </div>
 
-<!-- Type filter -->
-<div class="mt-6 flex gap-2">
+<!-- Type filter + search -->
+<div class="mt-6 flex flex-wrap items-center gap-2">
   @for (option of filters; track option) {
     <button
       type="button"
@@ -70,6 +70,9 @@
       {{ option }}
     </button>
   }
+  <div class="ml-auto">
+    <app-search-box [(value)]="search" placeholder="Search resources…" />
+  </div>
 </div>
 
 <!-- Resource cards -->
@@ -101,6 +104,9 @@
       }
     </a>
   } @empty {
-    <p class="text-sm text-slate-400">No resources in this category.</p>
+    <p class="text-sm text-slate-400">
+      @if (search()) { Nothing matches “{{ search() }}”. }
+      @else { No resources in this category. }
+    </p>
   }
 </div>

@@ -1,12 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../../core/api-client';
 import { Booking, Resource, User } from '../../core/models';
+import { matchesQuery } from '../../core/search';
+import { SearchBoxComponent } from '../../shared/search-box.component';
 
 @Component({
   selector: 'app-history',
-  imports: [DatePipe, FormsModule],
+  imports: [DatePipe, FormsModule, SearchBoxComponent],
   templateUrl: './history.component.html',
   styleUrl: './history.component.scss',
 })
@@ -18,6 +20,15 @@ export class HistoryComponent {
   protected readonly users = signal<User[]>([]);
   protected readonly loading = signal(false);
 
+  /** Free text, applied client-side to the loaded page of results. */
+  protected readonly search = signal('');
+
+  protected readonly visible = computed(() =>
+    this.bookings().filter((b) =>
+      matchesQuery(this.search(), b.resourceName, b.userName, b.notes, b.status),
+    ),
+  );
+
   // filters (template-driven; '' = any)
   protected resourceId = '';
   protected userId = '';
@@ -27,10 +38,10 @@ export class HistoryComponent {
   constructor() {
     this.api.getAdminResources().subscribe((resources) => this.resources.set(resources));
     this.api.getUsers().subscribe((users) => this.users.set(users));
-    this.search();
+    this.load();
   }
 
-  protected search(): void {
+  protected load(): void {
     this.loading.set(true);
     this.api
       .getBookingHistory({
@@ -50,6 +61,7 @@ export class HistoryComponent {
     this.userId = '';
     this.from = '';
     this.to = '';
-    this.search();
+    this.search.set('');
+    this.load();
   }
 }

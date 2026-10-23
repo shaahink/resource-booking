@@ -11,7 +11,7 @@ namespace Api.Controllers;
 public class NotificationsController(INotificationService notifications) : ControllerBase
 {
     [HttpGet]
-    public Task<IReadOnlyList<NotificationDto>> GetMine() =>
+    public Task<IReadOnlyList<NotificationResponse>> GetMine() =>
         notifications.GetForUserAsync(User.GetUserId());
 
     [HttpPost("{id:guid}/read")]

@@ -6,7 +6,7 @@ namespace Api.Services;
 
 /// <summary>
 /// Maps domain exceptions to the contract's ProblemDetails shapes (docs/contracts.md § Error shape):
-/// BookingRejectedException → 409/422 with the `violations` extension,
+/// BookingRejectedException → 409/422 with the `violations` extension, ConflictException → 409,
 /// KeyNotFoundException → 404, UnauthorizedAccessException → 403.
 /// </summary>
 public class ApiExceptionHandler : IExceptionHandler
@@ -20,6 +20,11 @@ public class ApiExceptionHandler : IExceptionHandler
                 Title = "Booking rejected",
                 Status = rejected.IsConflict ? StatusCodes.Status409Conflict : StatusCodes.Status422UnprocessableEntity,
             }, rejected),
+            ConflictException conflict => new ProblemDetails
+            {
+                Title = conflict.Message,
+                Status = StatusCodes.Status409Conflict,
+            },
             KeyNotFoundException notFound => new ProblemDetails
             {
                 Title = notFound.Message,

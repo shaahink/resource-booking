@@ -1,5 +1,5 @@
-// TypeScript mirror of Api/Contracts/Dtos.cs — the frozen API contract.
-// Changing anything here requires updating the C# DTOs and docs/contracts.md in the same commit.
+// TypeScript mirror of Api/Contracts/Requests.cs + Responses.cs — the frozen API contract.
+// Changing anything here requires updating the C# contract and docs/contracts.md in the same commit.
 
 export type UserRole = 'User' | 'Admin';
 export type ResourceType = 'Room' | 'Car' | 'Catering';
@@ -17,6 +17,8 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  isActive: boolean;
+  createdOn: string; // ISO 8601, UTC
 }
 
 export interface ResourceConstraint {
@@ -34,6 +36,7 @@ export interface Resource {
   location: string | null;
   description: string | null;
   isActive: boolean;
+  createdOn: string;
   constraints: ResourceConstraint[];
 }
 
@@ -57,6 +60,7 @@ export interface SaveUserRequest {
   name: string;
   email: string;
   role: UserRole;
+  isActive: boolean;
 }
 
 export interface Booking {
@@ -71,7 +75,7 @@ export interface Booking {
   quantity: number;
   status: BookingStatus;
   notes: string | null;
-  createdAt: string;
+  createdOn: string;
 }
 
 export interface CreateBookingRequest {
@@ -101,7 +105,7 @@ export interface NotificationItem {
   type: string;
   message: string;
   bookingId: string | null;
-  createdAt: string;
+  createdOn: string;
   readAt: string | null;
 }
 
@@ -130,7 +134,7 @@ export interface Dashboard {
   utilisation: ResourceUtilisation[];
   peakHours: PeakHour[];
   topUsers: TopUser[];
-  bookingsThisWeek: number;
+  bookingsInRange: number;
   overallUtilisationPct: number;
 }
 
@@ -147,8 +151,11 @@ export interface AssistantParseResponse {
   proposals: AssistantProposal[];
 }
 
+/** Structured digest so the dashboard can format it: headline, short highlights, one action. */
 export interface InsightsSummary {
-  summary: string;
+  headline: string;
+  highlights: string[];
+  suggestion: string;
   generatedAt: string;
 }
 

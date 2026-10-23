@@ -11,7 +11,7 @@ namespace Api.Controllers;
 public class BookingsController(IBookingService bookings) : ControllerBase
 {
     [HttpPost]
-    public async Task<ActionResult<BookingDto>> Create(CreateBookingRequest request)
+    public async Task<ActionResult<BookingResponse>> Create(CreateBookingRequest request)
     {
         var booking = await bookings.CreateAsync(User.GetUserId(), request);
         return CreatedAtAction(nameof(GetMine), new { }, booking);
@@ -25,5 +25,5 @@ public class BookingsController(IBookingService bookings) : ControllerBase
     }
 
     [HttpGet("mine")]
-    public Task<IReadOnlyList<BookingDto>> GetMine() => bookings.GetMineAsync(User.GetUserId());
+    public Task<IReadOnlyList<BookingResponse>> GetMine() => bookings.GetMineAsync(User.GetUserId());
 }

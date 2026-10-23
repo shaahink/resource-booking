@@ -105,6 +105,9 @@ export class ApiService extends ApiClient {
   getInsightsSummary(): Observable<InsightsSummary> {
     return this.http.get<InsightsSummary>('/api/admin/stats/summary');
   }
+  resetDemoData(): Observable<void> {
+    return this.http.post<void>('/api/admin/demo/reset', {});
+  }
 
   // AI assistant
   parseBookingRequest(text: string): Observable<AssistantParseResponse> {

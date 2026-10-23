@@ -48,7 +48,7 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     public async Task Resources_are_seeded_and_listed()
     {
         var client = await factory.CreateClientForAsync(TomId);
-        var resources = await client.GetFromJsonAsync<List<ResourceDto>>("/api/resources", Json);
+        var resources = await client.GetFromJsonAsync<List<ResourceResponse>>("/api/resources", Json);
         Assert.NotNull(resources);
         Assert.Equal(7, resources.Count);
         Assert.Contains(resources, r => r.Name == "Boardroom" && r.Constraints.Count == 2);
@@ -64,7 +64,7 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
             new CreateBookingRequest(WorkshopRoomId, start, end, 1, "Team workshop"), Json);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
 
-        var availability = await client.GetFromJsonAsync<AvailabilityDto>(
+        var availability = await client.GetFromJsonAsync<AvailabilityResponse>(
             $"/api/resources/{WorkshopRoomId}/availability?from={Uri.EscapeDataString($"{start.AddHours(-1):O}")}&to={Uri.EscapeDataString($"{end.AddHours(1):O}")}", Json);
         var slot = Assert.Single(availability!.Bookings);
         Assert.True(slot.Mine);
@@ -103,6 +103,30 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Booking_in_the_past_returns_422()
+    {
+        var client = await factory.CreateClientForAsync(TomId);
+        var start = DateTimeOffset.UtcNow.AddDays(-1);
+
+        var response = await client.PostAsJsonAsync("/api/bookings",
+            new CreateBookingRequest(WorkshopRoomId, start, start.AddHours(1), 1, null), Json);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("in_the_past", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Duplicate_user_email_returns_409_with_a_message()
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var response = await admin.PostAsJsonAsync("/api/admin/users",
+            new SaveUserRequest("Tom Clone", "tom@demo.local", Api.Domain.UserRole.User, true), Json);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("already exists", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Concurrent_bookings_for_one_slot_yield_exactly_one_success()
     {
         // The reason the advisory lock exists: two users submit the same slot at the same
@@ -127,7 +151,7 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await tom.GetAsync("/api/admin/users")).StatusCode);
 
         var admin = await factory.CreateClientForAsync(AdminId);
-        var users = await admin.GetFromJsonAsync<List<UserDto>>("/api/admin/users", Json);
+        var users = await admin.GetFromJsonAsync<List<UserResponse>>("/api/admin/users", Json);
         Assert.Equal(5, users!.Count);
     }
 
@@ -139,13 +163,13 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var created = await maya.PostAsJsonAsync("/api/bookings",
             new CreateBookingRequest(WorkshopRoomId, start, end, 1, null), Json);
-        var booking = await created.Content.ReadFromJsonAsync<BookingDto>(Json);
+        var booking = await created.Content.ReadFromJsonAsync<BookingResponse>(Json);
 
         var admin = await factory.CreateClientForAsync(AdminId);
         var cancel = await admin.DeleteAsync($"/api/bookings/{booking!.Id}");
         Assert.Equal(HttpStatusCode.NoContent, cancel.StatusCode);
 
-        var notifications = await maya.GetFromJsonAsync<List<NotificationDto>>("/api/notifications", Json);
+        var notifications = await maya.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications", Json);
         Assert.Contains(notifications!, n => n.Type == "booking_cancelled" && n.BookingId == booking.Id);
 
         // And the cancelled slot no longer blocks the grid.
@@ -161,7 +185,7 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var (start, end) = Slot(weeksAhead: 6, hour: 9);
         var created = await maya.PostAsJsonAsync("/api/bookings",
             new CreateBookingRequest(WorkshopRoomId, start, end, 1, null), Json);
-        var booking = await created.Content.ReadFromJsonAsync<BookingDto>(Json);
+        var booking = await created.Content.ReadFromJsonAsync<BookingResponse>(Json);
 
         var tom = await factory.CreateClientForAsync(TomId);
         var response = await tom.DeleteAsync($"/api/bookings/{booking!.Id}");
@@ -187,11 +211,11 @@ public class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var admin = await factory.CreateClientForAsync(AdminId);
         var from = DateTimeOffset.UtcNow.AddDays(-14);
         var to = DateTimeOffset.UtcNow;
-        var dashboard = await admin.GetFromJsonAsync<DashboardDto>(
+        var dashboard = await admin.GetFromJsonAsync<DashboardResponse>(
             $"/api/admin/stats/dashboard?from={Uri.EscapeDataString($"{from:O}")}&to={Uri.EscapeDataString($"{to:O}")}", Json);
 
         Assert.Equal(7, dashboard!.Utilisation.Count);
-        Assert.True(dashboard.BookingsThisWeek > 0, "seeded history should land inside the trailing week");
+        Assert.True(dashboard.BookingsInRange > 0, "seeded history should land inside the trailing fortnight");
         Assert.Contains(dashboard.Utilisation, u => u.UtilisationPct > 0);
     }
 }

@@ -1,11 +1,9 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ApiClient } from '../core/api-client';
 import { AuthService } from '../core/auth.service';
 import { NotificationItem } from '../core/models';
-import { RealtimeService } from '../core/realtime.service';
 
 @Component({
   selector: 'app-shell',
@@ -16,12 +14,9 @@ import { RealtimeService } from '../core/realtime.service';
 export class ShellComponent {
   protected readonly auth = inject(AuthService);
   private readonly api = inject(ApiClient);
-  private readonly realtime = inject(RealtimeService);
-  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly notifications = signal<NotificationItem[]>([]);
   protected readonly bellOpen = signal(false);
-  protected readonly liveToast = signal<string | null>(null);
 
   protected readonly unreadCount = computed(
     () => this.notifications().filter((n) => !n.readAt).length,
@@ -29,15 +24,6 @@ export class ShellComponent {
 
   constructor() {
     this.loadNotifications();
-
-    void this.realtime.connect();
-    this.realtime.notifications$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => {
-        this.liveToast.set(event.message);
-        setTimeout(() => this.liveToast.set(null), 6000);
-        this.loadNotifications();
-      });
   }
 
   private loadNotifications(): void {
@@ -45,6 +31,8 @@ export class ShellComponent {
   }
 
   protected toggleBell(): void {
+    // Refresh on open — notifications are fetched, not pushed.
+    if (!this.bellOpen()) this.loadNotifications();
     this.bellOpen.update((open) => !open);
   }
 

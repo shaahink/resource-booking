@@ -5,8 +5,9 @@ import { Booking, Resource, RuleViolation, toRuleProblem } from '../../core/mode
 
 /**
  * Confirmation dialog for one slot. The server is the authority on every rule —
- * this dialog's job is to collect duration/quantity/notes and to render the
- * violations that come back, not to pre-judge them.
+ * this dialog collects duration/quantity/notes, pre-checks only what the form itself
+ * can get wrong (an empty or out-of-range quantity), and renders the violations
+ * that come back rather than pre-judging them.
  */
 @Component({
   selector: 'app-booking-dialog',
@@ -34,8 +35,33 @@ export class BookingDialogComponent {
     () => new Date(this.slotStart().getTime() + this.durationMinutes() * 60_000),
   );
 
+  protected readonly quantityError = computed(() => {
+    const capacity = this.resource().capacity;
+    if (capacity === 1) return null;
+    const quantity = this.quantity();
+    if (!Number.isInteger(quantity) || quantity < 1) return 'Enter how many units you need.';
+    if (quantity > capacity) return `This resource has ${capacity} units.`;
+    return null;
+  });
+
+  protected readonly canSubmit = computed(() => !this.busy() && this.quantityError() === null);
+
+  protected onDurationChange(event: Event): void {
+    this.durationMinutes.set(Number((event.target as HTMLSelectElement).value));
+  }
+
+  protected onQuantityInput(event: Event): void {
+    // An emptied number field reads as NaN; 0 keeps the field controlled and trips the error.
+    const raw = (event.target as HTMLInputElement).valueAsNumber;
+    this.quantity.set(Number.isFinite(raw) ? Math.trunc(raw) : 0);
+  }
+
+  protected onNotesInput(event: Event): void {
+    this.notes.set((event.target as HTMLInputElement).value);
+  }
+
   protected submit(): void {
-    if (this.busy()) return;
+    if (!this.canSubmit()) return;
     this.busy.set(true);
     this.violations.set([]);
 

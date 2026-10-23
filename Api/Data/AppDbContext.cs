@@ -52,5 +52,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(n => n.Message).HasMaxLength(500);
             e.HasIndex(n => new { n.UserId, n.ReadAt });
         });
+
+        // Pre-existing rows (added before these columns) read as created "now" — the honest default.
+        modelBuilder.Entity<User>().Property(u => u.CreatedOn).HasDefaultValueSql("now()");
+        modelBuilder.Entity<Resource>().Property(r => r.CreatedOn).HasDefaultValueSql("now()");
     }
 }

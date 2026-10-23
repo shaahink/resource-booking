@@ -2,7 +2,7 @@
 <p class="mt-1 text-sm text-slate-500">Every booking, filterable by resource, user and date.</p>
 
 <!-- Filters -->
-<form class="mt-4 flex flex-wrap items-end gap-3" (submit)="$event.preventDefault(); search()">
+<form class="mt-4 flex flex-wrap items-end gap-3" (submit)="$event.preventDefault(); load()">
   <label class="block">
     <span class="filter-label">Resource</span>
     <select [(ngModel)]="resourceId" name="resourceId" class="filter-field">
@@ -35,6 +35,9 @@
   <button type="button" (click)="reset()" class="rounded-xl px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100">
     Reset
   </button>
+  <div class="ml-auto">
+    <app-search-box [(value)]="search" placeholder="Search results…" />
+  </div>
 </form>
 
 <!-- Table -->
@@ -51,7 +54,7 @@
       </tr>
     </thead>
     <tbody>
-      @for (booking of bookings(); track booking.id) {
+      @for (booking of visible(); track booking.id) {
         <tr class="border-b border-slate-50 last:border-0" [class.opacity-60]="booking.status === 'Cancelled'">
           <td class="px-5 py-2.5 whitespace-nowrap">
             {{ booking.start | date: 'EEE d MMM' }}
@@ -73,7 +76,9 @@
       } @empty {
         <tr>
           <td colspan="6" class="px-5 py-8 text-center text-sm text-slate-400">
-            {{ loading() ? 'Loading…' : 'No bookings match these filters.' }}
+            @if (loading()) { Loading… }
+            @else if (search()) { Nothing matches “{{ search() }}”. }
+            @else { No bookings match these filters. }
           </td>
         </tr>
       }

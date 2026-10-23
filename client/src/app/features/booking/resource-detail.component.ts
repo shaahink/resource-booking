@@ -1,11 +1,10 @@
 import { DatePipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../../core/api-client';
+import { describeConstraint } from '../../core/constraints';
 import { Availability, Booking, Resource } from '../../core/models';
-import { RealtimeService } from '../../core/realtime.service';
-import { GridSlot, bookingsInSlot, slotsForDay, usedQuantity, weekDays } from './grid';
+import { GridSlot, bookingsInSlot, isClosed, openingDays, slotsForDay, usedQuantity, weekDays } from './grid';
 import { BookingDialogComponent } from './booking-dialog.component';
 
 interface GridCell {
@@ -14,6 +13,7 @@ interface GridCell {
   mine: boolean;
   full: boolean;
   past: boolean;
+  closed: boolean;
 }
 
 interface GridDay {
@@ -33,8 +33,6 @@ const DAY_END_HOUR = 21;
 export class ResourceDetailComponent implements OnInit {
   private readonly api = inject(ApiClient);
   private readonly route = inject(ActivatedRoute);
-  private readonly realtime = inject(RealtimeService);
-  private readonly destroyRef = inject(DestroyRef);
 
   private readonly id = this.route.snapshot.paramMap.get('id')!;
 
@@ -43,6 +41,14 @@ export class ResourceDetailComponent implements OnInit {
   protected readonly anchor = signal(new Date());
   protected readonly selectedSlot = signal<Date | null>(null);
   protected readonly toast = signal<string | null>(null);
+
+  /** The rules the grid enforces, said out loud: "Mon–Fri 08:00–20:00 · max 2 h · …". */
+  protected readonly rulesStrip = computed(() =>
+    (this.resource()?.constraints ?? []).map(describeConstraint).join(' · '),
+  );
+
+  private readonly opening = computed(() => openingDays(this.resource()?.constraints ?? []));
+  protected readonly hasOpeningHours = computed(() => this.opening() !== null);
 
   protected readonly hourLabels = Array.from(
     { length: DAY_END_HOUR - DAY_START_HOUR },
@@ -53,6 +59,7 @@ export class ResourceDetailComponent implements OnInit {
     const availability = this.availability();
     const bookings = availability?.bookings ?? [];
     const capacity = availability?.capacity ?? 1;
+    const opening = this.opening();
     const now = new Date();
 
     return weekDays(this.anchor()).map((date) => ({
@@ -65,6 +72,7 @@ export class ResourceDetailComponent implements OnInit {
           mine: bookingsInSlot(bookings, slot).some((b) => b.mine),
           full: used >= capacity,
           past: slot.end <= now,
+          closed: isClosed(slot, opening),
         };
       }),
     }));
@@ -73,14 +81,6 @@ export class ResourceDetailComponent implements OnInit {
   ngOnInit(): void {
     this.api.getResource(this.id).subscribe((resource) => this.resource.set(resource));
     this.refetch();
-
-    void this.realtime.connect().then(() => this.realtime.watchResource(this.id));
-    this.realtime.bookingEvents$
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => {
-        if (event.resourceId === this.id) this.refetch();
-      });
-    this.destroyRef.onDestroy(() => void this.realtime.unwatchResource(this.id));
   }
 
   protected refetch(): void {
@@ -106,7 +106,7 @@ export class ResourceDetailComponent implements OnInit {
   }
 
   protected select(cell: GridCell): void {
-    if (cell.past || cell.full) return;
+    if (cell.past || cell.full || cell.closed) return;
     this.selectedSlot.set(cell.slot.start);
   }
 

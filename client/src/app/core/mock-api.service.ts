@@ -34,7 +34,7 @@ export class MockApiService extends ApiClient {
       type: 'booking_cancelled',
       message: 'Your Boardroom booking on Monday was cancelled by Priya Sharma.',
       bookingId: null,
-      createdAt: new Date(Date.now() - 3600_000).toISOString(),
+      createdOn: new Date(Date.now() - 3600_000).toISOString(),
       readAt: null,
     },
   ];
@@ -51,10 +51,10 @@ export class MockApiService extends ApiClient {
 
   // auth
   getLoginUsers(): Observable<User[]> {
-    return this.ok([...this.users].sort((a, b) => a.name.localeCompare(b.name)));
+    return this.ok(this.users.filter((u) => u.isActive).sort((a, b) => a.name.localeCompare(b.name)));
   }
   login(userId: string): Observable<User> {
-    const user = this.users.find((u) => u.id === userId);
+    const user = this.users.find((u) => u.id === userId && u.isActive);
     if (!user) return this.problem(401, 'Unknown user', []);
     this.currentUser = user;
     return this.ok(user);
@@ -133,7 +133,7 @@ export class MockApiService extends ApiClient {
       quantity: request.quantity,
       status: 'Confirmed',
       notes: request.notes,
-      createdAt: new Date().toISOString(),
+      createdOn: new Date().toISOString(),
     };
     this.bookings.push(booking);
     return this.ok(booking);
@@ -165,6 +165,7 @@ export class MockApiService extends ApiClient {
     const resource: Resource = {
       id: `r${++this.seq}`,
       ...request,
+      createdOn: new Date().toISOString(),
       constraints: request.constraints.map((c, i) => ({ id: `c${this.seq}-${i}`, ...c })),
     };
     this.resources.push(resource);
@@ -176,6 +177,7 @@ export class MockApiService extends ApiClient {
     this.resources[index] = {
       id,
       ...request,
+      createdOn: this.resources[index].createdOn,
       constraints: request.constraints.map((c, i) => ({ id: `c${id}-${i}`, ...c })),
     };
     return this.ok(this.resources[index]);
@@ -184,14 +186,20 @@ export class MockApiService extends ApiClient {
     return this.ok(this.users);
   }
   createUser(request: SaveUserRequest): Observable<User> {
-    const user: User = { id: `u${++this.seq}`, ...request };
+    if (this.users.some((u) => u.email === request.email)) {
+      return this.problem(409, `A user with email ${request.email} already exists.`, []);
+    }
+    const user: User = { id: `u${++this.seq}`, ...request, createdOn: new Date().toISOString() };
     this.users.push(user);
     return this.ok(user);
   }
   updateUser(id: string, request: SaveUserRequest): Observable<User> {
     const index = this.users.findIndex((u) => u.id === id);
     if (index < 0) return this.problem(404, 'User not found', []);
-    this.users[index] = { id, ...request };
+    if (this.users.some((u) => u.email === request.email && u.id !== id)) {
+      return this.problem(409, `A user with email ${request.email} already exists.`, []);
+    }
+    this.users[index] = { id, ...request, createdOn: this.users[index].createdOn };
     return this.ok(this.users[index]);
   }
   getBookingHistory(filter: {
@@ -251,7 +259,7 @@ export class MockApiService extends ApiClient {
       utilisation,
       peakHours,
       topUsers,
-      bookingsThisWeek: inRange.length,
+      bookingsInRange: inRange.length,
       overallUtilisationPct: Math.round(
         utilisation.reduce((sum, u) => sum + u.utilisationPct, 0) / Math.max(1, utilisation.length),
       ),
@@ -259,10 +267,22 @@ export class MockApiService extends ApiClient {
   }
   getInsightsSummary(): Observable<InsightsSummary> {
     return this.ok({
-      summary:
-        'Meeting rooms ran at moderate load this week, with the Boardroom the clear favourite and late mornings the busiest window. The Workshop Room is underused — consider promoting it for team sessions. Catering demand is steady at around 15–20 portions a day.',
+      headline: 'Meeting rooms ran at moderate load this week; cars and catering have headroom.',
+      highlights: [
+        'Boardroom is the clear favourite, busiest in the late mornings.',
+        'Workshop Room is underused for its size.',
+        'Catering demand is steady at 15–20 portions a day.',
+      ],
+      suggestion: 'Promote the Workshop Room for team sessions to spread the late-morning peak.',
       generatedAt: new Date().toISOString(),
     });
+  }
+  resetDemoData(): Observable<void> {
+    this.users = [...MOCK_USERS];
+    this.resources = structuredClone(MOCK_RESOURCES);
+    this.bookings = generateMockBookings();
+    this.notifications = [];
+    return this.ok(undefined);
   }
 
   // AI assistant
