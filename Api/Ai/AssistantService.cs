@@ -66,6 +66,7 @@ public class AssistantService(
         var candidates = AssistantPlanner.RankCandidates(intent, resources);
 
         var proposals = new List<AssistantProposalDto>();
+        IReadOnlyList<RuleViolation> firstRejection = [];
         foreach (var resource in candidates)
         {
             if (proposals.Count == 3) break;
@@ -91,14 +92,23 @@ public class AssistantService(
             {
                 proposals.Add(new AssistantProposalDto(resource.Id, resource.Name, start, end, quantity));
             }
+            else if (firstRejection.Count == 0)
+            {
+                firstRejection = violations;
+            }
         }
 
         var localStart = TimeZoneInfo.ConvertTime(start, London);
+        var reason = firstRejection.Count > 0 ? $" {firstRejection[0].Message}" : string.Empty;
         var summary = proposals.Count > 0
             ? $"Free for {localStart:ddd d MMM HH:mm}–{TimeZoneInfo.ConvertTime(end, London):HH:mm} — pick one to book:"
-            : $"Nothing free matched {localStart:ddd d MMM HH:mm} — try another time or the availability grid.";
+            : $"Nothing free matched {localStart:ddd d MMM HH:mm}.{reason} Try another time, or the availability grid.";
         return new AssistantParseResponse(summary, proposals);
     }
+
+    /// <summary>Small models are unreliable at weekday arithmetic — hand them the answer sheet.</summary>
+    private static string BuildCalendar(DateTimeOffset localNow) =>
+        string.Join(", ", Enumerable.Range(0, 14).Select(i => localNow.AddDays(i).ToString("ddd yyyy-MM-dd")));
 
     private async Task<BookingIntent?> ExtractIntentAsync(string text)
     {
@@ -119,7 +129,8 @@ public class AssistantService(
                         $"You extract booking intent for an office resource booking system " +
                         $"(meeting rooms, pool cars, lunch catering). " +
                         $"Now is {localNow:dddd yyyy-MM-dd HH:mm} in Europe/London. " +
-                        $"Resolve relative dates like 'tomorrow' or 'next Tuesday' to yyyy-MM-dd. " +
+                        $"Resolve relative dates like 'tomorrow' or 'next Tuesday' to yyyy-MM-dd " +
+                        $"using this calendar of the next two weeks: {BuildCalendar(localNow)}. " +
                         $"Return null for anything the user did not say."),
                     new UserChatMessage(text),
                 ],
