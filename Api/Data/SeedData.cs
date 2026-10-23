@@ -95,7 +95,7 @@ public static class SeedData
         var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, london).Date;
         int[] durations = [30, 60, 60, 90, 120];
 
-        foreach (var dayOffset in Enumerable.Range(-13, 17)) // 13 days back to 3 days ahead
+        foreach (var dayOffset in Enumerable.Range(-13, 24)) // 13 days back to 10 days ahead — reviewers click into next week
         {
             var day = today.AddDays(dayOffset);
             if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;

@@ -25,7 +25,7 @@
           class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-indigo-500"
         >
           @for (minutes of durations; track minutes) {
-            <option [value]="minutes">
+            <option [value]="minutes" [selected]="minutes === durationMinutes()">
               {{ minutes < 60 ? minutes + ' min' : minutes / 60 + ' h' }}
             </option>
           }

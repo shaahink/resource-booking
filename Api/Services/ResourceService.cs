@@ -21,7 +21,11 @@ public class ResourceService(AppDbContext db) : IResourceService
         var query = db.Resources.AsNoTracking().Include(r => r.Constraints).AsQueryable();
         if (!includeInactive) query = query.Where(r => r.IsActive);
         if (type is not null) query = query.Where(r => r.Type == type);
-        var resources = await query.OrderBy(r => r.Type).ThenBy(r => r.Name).ToListAsync();
+        // Explicit order: enums persist as strings, and alphabetical would put cars before rooms.
+        var resources = await query
+            .OrderBy(r => r.Type == ResourceType.Room ? 0 : r.Type == ResourceType.Car ? 1 : 2)
+            .ThenBy(r => r.Name)
+            .ToListAsync();
         return resources.Select(ToDto).ToList();
     }
 
