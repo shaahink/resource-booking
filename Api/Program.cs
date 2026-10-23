@@ -114,4 +114,8 @@ if (!app.Environment.IsEnvironment("Testing"))
 
 await app.RunAsync();
 
-public partial class Program; // exposed for WebApplicationFactory in integration tests
+/// <summary>Exposed for WebApplicationFactory in the integration tests.</summary>
+public partial class Program
+{
+    protected Program() { }
+}

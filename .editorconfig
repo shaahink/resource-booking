@@ -1,0 +1,50 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# ── Layout: one convention, enforced ────────────────────────────────────
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_style_readonly_field = true:warning
+dotnet_diagnostic.IDE0051.severity = warning   # unused private member
+dotnet_diagnostic.IDE0052.severity = warning   # private member assigned but never read
+dotnet_diagnostic.IDE0060.severity = warning   # unused parameter
+
+# An interface lives in its implementation's file, and closely related records share one
+# (Contracts/Requests.cs, Domain/Entities.cs) — so a file need not be named after its type.
+dotnet_diagnostic.MA0048.severity = none
+
+# ── Turned off on purpose ───────────────────────────────────────────────
+# ASP.NET Core has no synchronization context; ConfigureAwait(false) is noise in an app.
+dotnet_diagnostic.CA2007.severity = none
+dotnet_diagnostic.MA0004.severity = none
+# An application, not a library: public types are fine and never consumed externally.
+dotnet_diagnostic.CA1515.severity = none
+# Six log calls on non-hot paths; source-generated LoggerMessage would be ceremony here.
+dotnet_diagnostic.CA1848.severity = none
+dotnet_diagnostic.CA1873.severity = none
+# Library-API rules: collection types in signatures (they also contradict each other —
+# CA1859 wants concrete types, MA0016 abstractions) and Visual Basic keywords as names.
+dotnet_diagnostic.CA1859.severity = none
+dotnet_diagnostic.MA0016.severity = none
+dotnet_diagnostic.CA1716.severity = none
+# AdminController is one role boundary — /api/admin — grouped by comments, not six controllers.
+dotnet_diagnostic.S6960.severity = none
+
+[Api/Data/SeedData.cs]
+# Seed data reads top to bottom; splitting it to fit 60 lines would scatter the story.
+dotnet_diagnostic.MA0051.severity = none
+
+[Api.Tests/**.cs]
+# Test names read as sentences: Booking_in_the_past_returns_422.
+dotnet_diagnostic.CA1707.severity = none
+
+[Api/Migrations/**.cs]
+generated_code = true

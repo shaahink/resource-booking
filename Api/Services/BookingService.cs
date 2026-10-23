@@ -48,24 +48,7 @@ public sealed class BookingService(
             await db.Database.ExecuteSqlAsync(
                 $"SELECT pg_advisory_xact_lock(hashtextextended({resource.Id.ToString()}, 0))");
 
-            var overlapping = await db.Bookings.AsNoTracking()
-                .Where(b => b.ResourceId == resource.Id
-                            && b.Status == BookingStatus.Confirmed
-                            && b.Start < booking.End && b.End > booking.Start)
-                .ToListAsync();
-
-            var now = DateTimeOffset.UtcNow;
-            var usersUpcoming = await db.Bookings.AsNoTracking()
-                .Where(b => b.ResourceId == resource.Id
-                            && b.UserId == userId
-                            && b.Status == BookingStatus.Confirmed
-                            && b.End > now)
-                .ToListAsync();
-
-            var violations = rules.Validate(new BookingContext(
-                resource, resource.Constraints, user,
-                booking.Start, booking.End, booking.Quantity,
-                overlapping, usersUpcoming, now));
+            var violations = await CheckRulesAsync(resource, user, booking);
             if (violations.Count > 0) throw new BookingRejectedException(violations);
 
             db.Bookings.Add(booking);
@@ -84,10 +67,34 @@ public sealed class BookingService(
             }
         }
 
-        logger.LogInformation("Booking {BookingId} created for {Resource} by {User}",
-            booking.Id, resource.Name, user.Name);
+        logger.LogInformation("Booking {BookingId} created on {ResourceId} by {UserId}",
+            booking.Id, resource.Id, user.Id);
 
         return ToResponse(booking, resource.Name, resource.Type, user.Name);
+    }
+
+    /// <summary>Gather what the rules need and run them. Called inside the advisory lock, so the
+    /// bookings read here cannot change before the insert.</summary>
+    private async Task<IReadOnlyList<RuleViolation>> CheckRulesAsync(Resource resource, User user, Booking booking)
+    {
+        var overlapping = await db.Bookings.AsNoTracking()
+            .Where(b => b.ResourceId == resource.Id
+                        && b.Status == BookingStatus.Confirmed
+                        && b.Start < booking.End && b.End > booking.Start)
+            .ToListAsync();
+
+        var now = DateTimeOffset.UtcNow;
+        var usersUpcoming = await db.Bookings.AsNoTracking()
+            .Where(b => b.ResourceId == resource.Id
+                        && b.UserId == user.Id
+                        && b.Status == BookingStatus.Confirmed
+                        && b.End > now)
+            .ToListAsync();
+
+        return rules.Validate(new BookingContext(
+            resource, resource.Constraints, user,
+            booking.Start, booking.End, booking.Quantity,
+            overlapping, usersUpcoming, now));
     }
 
     public async Task CancelAsync(Guid callerId, bool callerIsAdmin, Guid bookingId)

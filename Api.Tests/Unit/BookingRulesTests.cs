@@ -1,3 +1,4 @@
+using System.Globalization;
 using Api.Domain;
 using Api.Services;
 using Xunit;
@@ -7,7 +8,7 @@ namespace Api.Tests.Unit;
 public sealed class BookingRulesTests
 {
     // Monday 19 Oct 2026, 09:00 Europe/London (BST, UTC+1).
-    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z");
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z", CultureInfo.InvariantCulture);
 
     private readonly BookingRulesService _rules = new();
 
@@ -25,7 +26,7 @@ public sealed class BookingRulesTests
 
     /// <summary>Tomorrow (Tue) at the given London hour — inside any sane business day.</summary>
     private static DateTimeOffset Tomorrow(double hourLocal) =>
-        DateTimeOffset.Parse("2026-10-20T00:00:00+01:00").AddHours(hourLocal);
+        DateTimeOffset.Parse("2026-10-20T00:00:00+01:00", CultureInfo.InvariantCulture).AddHours(hourLocal);
 
     private static Booking Existing(Resource resource, User user, DateTimeOffset start, DateTimeOffset end,
         int quantity = 1, BookingStatus status = BookingStatus.Confirmed) => new()
@@ -42,7 +43,7 @@ public sealed class BookingRulesTests
     private static ResourceConstraint Constraint(ConstraintType type, string paramsJson) =>
         new() { Type = type, ParamsJson = paramsJson };
 
-    private BookingContext Context(
+    private static BookingContext Context(
         Resource? resource = null,
         DateTimeOffset? start = null,
         DateTimeOffset? end = null,
@@ -64,7 +65,7 @@ public sealed class BookingRulesTests
             now ?? Now);
 
     private static string[] Codes(IReadOnlyList<RuleViolation> violations) =>
-        violations.Select(v => v.Code).OrderBy(c => c).ToArray();
+        violations.Select(v => v.Code).OrderBy(c => c, StringComparer.Ordinal).ToArray();
 
     // ── structural ──────────────────────────────────────────────────────
 
@@ -177,7 +178,7 @@ public sealed class BookingRulesTests
         var existing = Existing(catering, Bob, Tomorrow(10), Tomorrow(11), quantity: 30);
         var result = _rules.Validate(Context(resource: catering, overlapping: [existing], quantity: 11));
         Assert.Equal([RuleCodes.CapacityExceeded], Codes(result));
-        Assert.Contains("10 of 40", result.Single().Message);
+        Assert.Contains("10 of 40", result.Single().Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -196,7 +197,7 @@ public sealed class BookingRulesTests
         var over = _rules.Validate(Context(resource: catering, start: Tomorrow(12), end: Tomorrow(13),
             overlapping: [early, late], quantity: 11));
         Assert.Equal([RuleCodes.CapacityExceeded], Codes(over));
-        Assert.Contains("10 of 40", over.Single().Message);
+        Assert.Contains("10 of 40", over.Single().Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -215,7 +216,7 @@ public sealed class BookingRulesTests
     {
         var result = _rules.Validate(Context(resource: Room(capacity: 5), quantity: 6));
         Assert.Equal([RuleCodes.CapacityExceeded], Codes(result));
-        Assert.Contains("5 units in total", result.Single().Message);
+        Assert.Contains("5 units in total", result.Single().Message, StringComparison.Ordinal);
     }
 
     // ── typed constraints ───────────────────────────────────────────────
@@ -301,7 +302,7 @@ public sealed class BookingRulesTests
     [Fact]
     public void Booking_on_a_closed_day_fails()
     {
-        var saturday = DateTimeOffset.Parse("2026-10-24T10:00:00+01:00");
+        var saturday = DateTimeOffset.Parse("2026-10-24T10:00:00+01:00", CultureInfo.InvariantCulture);
         var result = _rules.Validate(Context(
             start: saturday,
             end: saturday.AddHours(1),
@@ -315,10 +316,10 @@ public sealed class BookingRulesTests
         // Monday 30 Mar 2026, the day after clocks go forward: 08:00 London == 07:00 UTC.
         // A naive UTC check would read 07:00 and reject it.
         var result = _rules.Validate(Context(
-            start: DateTimeOffset.Parse("2026-03-30T07:00:00Z"),
-            end: DateTimeOffset.Parse("2026-03-30T08:00:00Z"),
+            start: DateTimeOffset.Parse("2026-03-30T07:00:00Z", CultureInfo.InvariantCulture),
+            end: DateTimeOffset.Parse("2026-03-30T08:00:00Z", CultureInfo.InvariantCulture),
             constraints: [Constraint(ConstraintType.OpeningHours, Weekdays8To20)],
-            now: DateTimeOffset.Parse("2026-03-29T12:00:00Z")));
+            now: DateTimeOffset.Parse("2026-03-29T12:00:00Z", CultureInfo.InvariantCulture)));
         Assert.Empty(result);
     }
 

@@ -23,7 +23,8 @@ public sealed class ResourceService(AppDbContext db) : IResourceService
         if (type is not null) query = query.Where(r => r.Type == type);
         // Explicit order: enums persist as strings, and alphabetical would put cars before rooms.
         var resources = await query
-            .OrderBy(r => r.Type == ResourceType.Room ? 0 : r.Type == ResourceType.Car ? 1 : 2)
+            .OrderBy(r => r.Type != ResourceType.Room)
+            .ThenBy(r => r.Type != ResourceType.Car)
             .ThenBy(r => r.Name)
             .ToListAsync();
         return resources.Select(ToResponse).ToList();

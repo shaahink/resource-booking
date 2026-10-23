@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Api.Contracts;
 using Api.Data;
@@ -130,7 +131,7 @@ public sealed class AssistantService(
 
     /// <summary>Small models are unreliable at weekday arithmetic — hand them the answer sheet.</summary>
     private static string BuildCalendar(DateTimeOffset localNow) =>
-        string.Join(", ", Enumerable.Range(0, 14).Select(i => localNow.AddDays(i).ToString("ddd yyyy-MM-dd")));
+        string.Join(", ", Enumerable.Range(0, 14).Select(i => localNow.AddDays(i).ToString("ddd yyyy-MM-dd", CultureInfo.InvariantCulture)));
 
     private async Task<BookingIntent?> ExtractIntentAsync(string text)
     {

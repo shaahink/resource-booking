@@ -23,8 +23,8 @@ public sealed class ValidationFilter(IServiceProvider services) : IAsyncActionFi
             if (!result.IsValid)
             {
                 var errors = result.Errors
-                    .GroupBy(e => e.PropertyName)
-                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray());
+                    .GroupBy(e => e.PropertyName, StringComparer.Ordinal)
+                    .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray(), StringComparer.Ordinal);
                 context.Result = new BadRequestObjectResult(new ValidationProblemDetails(errors));
                 return;
             }

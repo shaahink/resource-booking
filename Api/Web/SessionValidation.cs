@@ -25,7 +25,7 @@ public static class SessionValidation
                 .FirstOrDefaultAsync()
             : null;
 
-        if (user is null || !user.IsActive || user.Role.ToString() != claimedRole)
+        if (user is null || !user.IsActive || !string.Equals(user.Role.ToString(), claimedRole, StringComparison.Ordinal))
         {
             context.RejectPrincipal();
             await context.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);

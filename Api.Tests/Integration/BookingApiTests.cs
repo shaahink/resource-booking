@@ -52,7 +52,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         var resources = await client.GetFromJsonAsync<List<ResourceResponse>>("/api/resources", Json);
         Assert.NotNull(resources);
         Assert.Equal(7, resources.Count);
-        Assert.Contains(resources, r => r.Name == "Boardroom" && r.Constraints.Count == 2);
+        Assert.Contains(resources, r => string.Equals(r.Name, "Boardroom", StringComparison.Ordinal) && r.Constraints.Count == 2);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
 
         var body = await second.Content.ReadAsStringAsync();
-        Assert.Contains("overlap_conflict", body);
+        Assert.Contains("overlap_conflict", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
             new CreateBookingRequest(WorkshopRoomId, start, end, 1, null), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Contains("outside_opening_hours", await response.Content.ReadAsStringAsync());
+        Assert.Contains("outside_opening_hours", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -113,7 +113,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
             new CreateBookingRequest(WorkshopRoomId, start, start.AddHours(1), 1, null), Json);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
-        Assert.Contains("in_the_past", await response.Content.ReadAsStringAsync());
+        Assert.Contains("in_the_past", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
             new SaveUserRequest("Tom Clone", "tom@demo.local", Api.Domain.UserRole.User, true), Json);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("already exists", await response.Content.ReadAsStringAsync());
+        Assert.Contains("already exists", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -240,8 +240,8 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
     {
         var anonymous = factory.CreateClient();
         var body = await anonymous.GetStringAsync("/api/auth/users");
-        Assert.Contains("Priya Sharma", body);
-        Assert.DoesNotContain("@", body);
+        Assert.Contains("Priya Sharma", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("@", body, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -251,6 +251,19 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         var response = await tom.GetAsync("/api/bokings");
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task Saving_a_user_without_isActive_is_rejected_not_a_silent_disable()
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var response = await admin.PutAsync($"/api/admin/users/{TomId}", new StringContent(
+            """{"name":"Tom Hale","email":"tom@demo.local","role":"User"}""",
+            System.Text.Encoding.UTF8, "application/json"));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        var tom = await factory.CreateClientForAsync(TomId);
+        Assert.Equal(HttpStatusCode.OK, (await tom.GetAsync("/api/auth/me")).StatusCode);
     }
 
     [Fact]
@@ -279,7 +292,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal(HttpStatusCode.NoContent, cancel.StatusCode);
 
         var notifications = await maya.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications", Json);
-        Assert.Contains(notifications!, n => n.Type == "booking_cancelled" && n.BookingId == booking.Id);
+        Assert.Contains(notifications!, n => string.Equals(n.Type, "booking_cancelled", StringComparison.Ordinal) && n.BookingId == booking.Id);
 
         // And the cancelled slot no longer blocks the grid.
         var rebook = await maya.PostAsJsonAsync("/api/bookings",

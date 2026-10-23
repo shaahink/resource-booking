@@ -95,7 +95,7 @@ public static class AssistantPlanner
 
         return candidates
             .OrderBy(r => r.Seats ?? int.MaxValue) // smallest room that fits first
-            .ThenBy(r => r.Name)
+            .ThenBy(r => r.Name, StringComparer.Ordinal)
             .ToList();
     }
 }

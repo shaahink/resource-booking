@@ -10,11 +10,11 @@ public sealed class DatabaseUrlTests
     {
         var connectionString = DatabaseUrl.ToConnectionString("postgres://booking:s3cr%40t@db.example.com:6543/bookable");
 
-        Assert.Contains("Host=db.example.com", connectionString);
-        Assert.Contains("Port=6543", connectionString);
-        Assert.Contains("Username=booking", connectionString);
-        Assert.Contains("Password=s3cr@t", connectionString);
-        Assert.Contains("Database=bookable", connectionString);
+        Assert.Contains("Host=db.example.com", connectionString, StringComparison.Ordinal);
+        Assert.Contains("Port=6543", connectionString, StringComparison.Ordinal);
+        Assert.Contains("Username=booking", connectionString, StringComparison.Ordinal);
+        Assert.Contains("Password=s3cr@t", connectionString, StringComparison.Ordinal);
+        Assert.Contains("Database=bookable", connectionString, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -22,27 +22,27 @@ public sealed class DatabaseUrlTests
     {
         // Render's internal URLs carry no port.
         var connectionString = DatabaseUrl.ToConnectionString("postgres://booking:pass@dpg-abc123-a/booking");
-        Assert.Contains("Port=5432", connectionString);
+        Assert.Contains("Port=5432", connectionString, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Honours_an_explicit_sslmode()
     {
         var connectionString = DatabaseUrl.ToConnectionString("postgres://u:p@db.example.com/booking?sslmode=verify-full");
-        Assert.Contains("SSL Mode=VerifyFull", connectionString);
+        Assert.Contains("SSL Mode=VerifyFull", connectionString, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Prefers_tls_when_no_sslmode_is_given()
     {
         var connectionString = DatabaseUrl.ToConnectionString("postgres://u:p@dpg-abc123-a/booking");
-        Assert.Contains("SSL Mode=Prefer", connectionString);
+        Assert.Contains("SSL Mode=Prefer", connectionString, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Unescapes_the_database_name()
     {
         var connectionString = DatabaseUrl.ToConnectionString("postgres://u:p@db.example.com/my%20db");
-        Assert.Contains("Database=\"my db\"", connectionString);
+        Assert.Contains("Database=\"my db\"", connectionString, StringComparison.Ordinal);
     }
 }

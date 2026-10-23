@@ -99,7 +99,7 @@ public static class ConstraintParams
         if (element.ValueKind != JsonValueKind.String) return false;
 
         var text = element.GetString();
-        if (text == "24:00")
+        if (string.Equals(text, "24:00", StringComparison.Ordinal))
         {
             time = Midnight;
             return true;

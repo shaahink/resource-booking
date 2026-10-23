@@ -1,3 +1,4 @@
+using System.Globalization;
 using Api.Ai;
 using Api.Domain;
 using Xunit;
@@ -7,7 +8,7 @@ namespace Api.Tests.Unit;
 public sealed class AssistantPlannerTests
 {
     // Monday 19 Oct 2026, 09:00 Europe/London (BST).
-    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z");
+    private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z", CultureInfo.InvariantCulture);
 
     private static BookingIntent Intent(
         string? type = null, int? seats = null, int? quantity = null,
@@ -30,7 +31,7 @@ public sealed class AssistantPlannerTests
         var (start, end) = Window(
             Intent(date: "2026-10-20", startTime: "14:00", duration: 90), Now);
 
-        Assert.Equal(DateTimeOffset.Parse("2026-10-20T13:00:00Z"), start); // 14:00 BST == 13:00 UTC
+        Assert.Equal(DateTimeOffset.Parse("2026-10-20T13:00:00Z", CultureInfo.InvariantCulture), start); // 14:00 BST == 13:00 UTC
         Assert.Equal(90, (end - start).TotalMinutes);
     }
 
@@ -38,24 +39,24 @@ public sealed class AssistantPlannerTests
     public void Missing_time_defaults_to_the_next_full_hour_today()
     {
         var (start, _) = Window(Intent(), Now);
-        Assert.Equal(DateTimeOffset.Parse("2026-10-19T09:00:00Z"), start); // 10:00 London
+        Assert.Equal(DateTimeOffset.Parse("2026-10-19T09:00:00Z", CultureInfo.InvariantCulture), start); // 10:00 London
     }
 
     [Fact]
     public void Late_in_the_day_rolls_to_tomorrow_morning()
     {
-        var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z"); // 19:30 London
+        var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z", CultureInfo.InvariantCulture); // 19:30 London
         var (start, _) = Window(Intent(), evening);
-        Assert.Equal(DateTimeOffset.Parse("2026-10-20T08:00:00Z"), start); // tomorrow 09:00 London
+        Assert.Equal(DateTimeOffset.Parse("2026-10-20T08:00:00Z", CultureInfo.InvariantCulture), start); // tomorrow 09:00 London
     }
 
     [Fact]
     public void Missing_time_on_a_future_date_defaults_to_morning()
     {
         // "book a room on Wednesday", asked Monday evening: Wednesday 09:00, not 20:00.
-        var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z");
+        var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z", CultureInfo.InvariantCulture);
         var (start, _) = Window(Intent(date: "2026-10-21"), evening);
-        Assert.Equal(DateTimeOffset.Parse("2026-10-21T08:00:00Z"), start); // 09:00 London
+        Assert.Equal(DateTimeOffset.Parse("2026-10-21T08:00:00Z", CultureInfo.InvariantCulture), start); // 09:00 London
     }
 
     [Fact]

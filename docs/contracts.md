@@ -65,7 +65,9 @@ RFC 7807 ProblemDetails. Rule failures add a `violations` extension:
 409 = conflict with other bookings (`overlap_conflict`, `capacity_exceeded`) or a
 uniqueness conflict (duplicate user email, no `violations` extension);
 422 = any other rule failure; 400 = shape validation (FluentValidation — including
-`end > start`, bookings ≤ 14 days, and constraint params matching their type's shape).
+`end > start`, bookings ≤ 14 days, and constraint params matching their type's shape)
+or a missing value-type field: `isActive`, `quantity`, `start` and the like are required,
+never defaulted.
 
 ## Rule codes
 

@@ -7,9 +7,10 @@ COPY client/ ./
 RUN npx ng build
 
 # ── Stage 2: API build ──────────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api-build
+# Same SDK as global.json: the analyzer set ships with the SDK, so a newer one adds rules.
+FROM mcr.microsoft.com/dotnet/sdk:10.0.101 AS api-build
 WORKDIR /src
-COPY global.json Directory.Build.props ./
+COPY global.json Directory.Build.props .editorconfig ./
 COPY Api/Api.csproj Api/
 RUN dotnet restore Api/Api.csproj
 COPY Api/ Api/
