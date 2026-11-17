@@ -38,7 +38,9 @@ public sealed class StatsService(AppDbContext db) : IStatsService
             .ToListAsync();
         var userNames = await db.Users.AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.Name);
 
+        // An inactive resource only earns a row if it was used in the window.
         var utilisation = resources
+            .Where(r => r.IsActive || bookings.Any(b => b.ResourceId == r.Id))
             .Select(r => Utilisation(r, bookings.Where(b => b.ResourceId == r.Id).ToList(), from, to))
             .ToList();
 

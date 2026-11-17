@@ -89,7 +89,8 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
     public async Task Resources_are_found_by_slug_and_a_repeated_name_is_numbered()
     {
         var admin = await factory.CreateClientForAsync(AdminId);
-        const string body = """{"name":"Slug Probe Room","type":"Room","capacity":1,"isActive":true,"constraints":[]}""";
+        // Inactive, so the probes stay out of the seeded lists other tests count.
+        const string body = """{"name":"Slug Probe Room","type":"Room","capacity":1,"isActive":false,"constraints":[]}""";
         foreach (var _ in Enumerable.Range(0, 2))
         {
             var created = await admin.PostAsync(new Uri("/api/admin/resources", UriKind.Relative),
