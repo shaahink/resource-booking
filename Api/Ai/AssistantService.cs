@@ -17,13 +17,13 @@ public interface IAssistantService
 /// <summary>
 /// The NL booking assistant. The model does exactly one job — turn free text into a
 /// BookingIntent via a strict JSON schema. Everything after that is deterministic server
-/// code: candidate ranking, window resolution, and a BookingRules dry-run per candidate.
+/// code: candidate ranking, window resolution, and the booking service's own rule check per candidate.
 /// A proposal the user sees has already passed the same validation a form booking would.
 /// </summary>
 public sealed class AssistantService(
     AiOptions options,
     AppDbContext db,
-    IBookingRules rules,
+    IBookingService bookings,
     ILogger<AssistantService> logger) : IAssistantService
 {
     private const int MaxProposals = 3;
@@ -85,7 +85,7 @@ public sealed class AssistantService(
             if (proposals.Count == MaxProposals) break;
 
             var quantity = AssistantPlanner.ResolveQuantity(intent, resource);
-            var violations = await DryRunAsync(resource, user, start, end, quantity, now);
+            var violations = await bookings.CheckRulesAsync(resource, user, start, end, quantity, now);
 
             if (violations.Count == 0)
                 proposals.Add(new AssistantProposalResponse(resource.Id, resource.Name, start, end, quantity));
@@ -94,27 +94,6 @@ public sealed class AssistantService(
         }
 
         return (proposals, firstRejection);
-    }
-
-    /// <summary>The same data-gathering a real booking would do, followed by the same Validate.</summary>
-    private async Task<IReadOnlyList<RuleViolation>> DryRunAsync(
-        Resource resource, User user, DateTimeOffset start, DateTimeOffset end, int quantity, DateTimeOffset now)
-    {
-        var overlapping = await db.Bookings.AsNoTracking()
-            .Where(b => b.ResourceId == resource.Id
-                        && b.Status == BookingStatus.Confirmed
-                        && b.Start < end && b.End > start)
-            .ToListAsync();
-        var usersUpcoming = await db.Bookings.AsNoTracking()
-            .Where(b => b.ResourceId == resource.Id
-                        && b.UserId == user.Id
-                        && b.Status == BookingStatus.Confirmed
-                        && b.End > now)
-            .ToListAsync();
-
-        return rules.Validate(new BookingContext(
-            resource, resource.Constraints, user, start, end, quantity,
-            overlapping, usersUpcoming, now));
     }
 
     private static string Summarise(

@@ -9,6 +9,11 @@ namespace Api.Services;
 public interface IBookingService
 {
     Task<BookingResponse> CreateAsync(Guid userId, CreateBookingRequest request);
+
+    /// <summary>Gather what the rules need and run them. The form and the AI assistant both
+    /// come through here, so a proposal is checked exactly as a booking would be.</summary>
+    Task<IReadOnlyList<RuleViolation>> CheckRulesAsync(
+        Resource resource, User user, DateTimeOffset start, DateTimeOffset end, int quantity, DateTimeOffset now);
     Task CancelAsync(Guid callerId, bool callerIsAdmin, Guid bookingId);
     Task<IReadOnlyList<BookingResponse>> GetMineAsync(Guid userId);
     Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(Guid? resourceId, Guid? userId, DateTimeOffset? from, DateTimeOffset? to);
@@ -48,7 +53,8 @@ public sealed class BookingService(
             await db.Database.ExecuteSqlAsync(
                 $"SELECT pg_advisory_xact_lock(hashtextextended({resource.Id.ToString()}, 0))");
 
-            var violations = await CheckRulesAsync(resource, user, booking);
+            var violations = await CheckRulesAsync(
+                resource, user, booking.Start, booking.End, booking.Quantity, DateTimeOffset.UtcNow);
             if (violations.Count > 0) throw new BookingRejectedException(violations);
 
             db.Bookings.Add(booking);
@@ -73,17 +79,17 @@ public sealed class BookingService(
         return ToResponse(booking, resource.Name, resource.Type, user.Name);
     }
 
-    /// <summary>Gather what the rules need and run them. Called inside the advisory lock, so the
-    /// bookings read here cannot change before the insert.</summary>
-    private async Task<IReadOnlyList<RuleViolation>> CheckRulesAsync(Resource resource, User user, Booking booking)
+    // In CreateAsync this runs inside the advisory lock, so the bookings read here cannot
+    // change before the insert.
+    public async Task<IReadOnlyList<RuleViolation>> CheckRulesAsync(
+        Resource resource, User user, DateTimeOffset start, DateTimeOffset end, int quantity, DateTimeOffset now)
     {
         var overlapping = await db.Bookings.AsNoTracking()
             .Where(b => b.ResourceId == resource.Id
                         && b.Status == BookingStatus.Confirmed
-                        && b.Start < booking.End && b.End > booking.Start)
+                        && b.Start < end && b.End > start)
             .ToListAsync();
 
-        var now = DateTimeOffset.UtcNow;
         var usersUpcoming = await db.Bookings.AsNoTracking()
             .Where(b => b.ResourceId == resource.Id
                         && b.UserId == user.Id
@@ -92,8 +98,7 @@ public sealed class BookingService(
             .ToListAsync();
 
         return rules.Validate(new BookingContext(
-            resource, resource.Constraints, user,
-            booking.Start, booking.End, booking.Quantity,
+            resource, resource.Constraints, user, start, end, quantity,
             overlapping, usersUpcoming, now));
     }
 
