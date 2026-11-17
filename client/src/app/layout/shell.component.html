@@ -1,10 +1,10 @@
 <div class="flex min-h-screen">
   <!-- Sidenav -->
-  <aside class="flex w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
-    <div class="flex items-center gap-2 px-5 py-5">
+  <aside class="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <a routerLink="/resources" class="flex items-center gap-2 px-5 py-5" aria-label="Bookable home">
       <span class="grid size-8 place-items-center rounded-lg bg-indigo-600 font-bold text-white">B</span>
       <span class="text-lg font-semibold tracking-tight">Bookable</span>
-    </div>
+    </a>
 
     <nav class="flex flex-1 flex-col gap-1 px-3 py-2 text-sm">
       <a routerLink="/resources" routerLinkActive="nav-active" class="nav-link">Resources</a>
