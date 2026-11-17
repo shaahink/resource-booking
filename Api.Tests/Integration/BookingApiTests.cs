@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Api.Contracts;
 using Api.Data;
+using Api.Domain;
 using Xunit;
 
 namespace Api.Tests.Integration;
@@ -69,6 +70,19 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
             $"/api/resources/{WorkshopRoomId}/availability?from={Uri.EscapeDataString($"{start.AddHours(-1):O}")}&to={Uri.EscapeDataString($"{end.AddHours(1):O}")}", Json);
         var slot = Assert.Single(availability!.Bookings);
         Assert.True(slot.Mine);
+    }
+
+    [Fact]
+    public async Task Cancelling_a_booking_that_has_ended_returns_422_and_keeps_it_in_history()
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        var history = await admin.GetFromJsonAsync<List<BookingResponse>>("/api/admin/bookings", Json);
+        var ended = history!.First(b => b.Status == BookingStatus.Confirmed && b.End < DateTimeOffset.UtcNow);
+
+        var response = await admin.DeleteAsync(new Uri($"/api/bookings/{ended.Id}", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Contains("in_the_past", await response.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]

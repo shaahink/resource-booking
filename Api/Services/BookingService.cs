@@ -112,6 +112,9 @@ public sealed class BookingService(
         if (booking.UserId != callerId && !callerIsAdmin)
             throw new UnauthorizedAccessException("Only the owner or an admin can cancel a booking.");
         if (booking.Status == BookingStatus.Cancelled) return;
+        if (booking.End <= DateTimeOffset.UtcNow)
+            throw new BookingRejectedException(
+                [new(RuleCodes.InThePast, "This booking has already ended, so it stays in the history.")]);
 
         booking.Status = BookingStatus.Cancelled;
         booking.CancelledAt = DateTimeOffset.UtcNow;
