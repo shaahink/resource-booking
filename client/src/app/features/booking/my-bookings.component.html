@@ -1,69 +1,104 @@
 <div class="flex flex-wrap items-center justify-between gap-3">
   <h1 class="text-xl font-semibold tracking-tight">My bookings</h1>
-  <app-search-box [(value)]="search" placeholder="Search bookings…" />
+  <div class="flex flex-wrap gap-2">
+    <a routerLink="/resources" [queryParams]="{ type: 'Room' }" class="quick-action">+ Book a room</a>
+    <a routerLink="/resources" [queryParams]="{ type: 'Car' }" class="quick-action">+ Book a car</a>
+    <a routerLink="/resources" [queryParams]="{ type: 'Catering' }" class="quick-action">+ Order lunch</a>
+  </div>
 </div>
 
-<h2 class="mt-5 text-sm font-semibold text-slate-600">Upcoming</h2>
-<div class="mt-2 flex flex-col gap-2">
-  @for (booking of upcoming(); track booking.id) {
-    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-slate-200 bg-white px-5 py-3">
-      <div class="min-w-44">
-        <a [routerLink]="['/resources', booking.resourceSlug]" class="font-medium hover:text-indigo-700">
-          {{ booking.resourceName }}
-        </a>
-        <div class="text-xs text-slate-400">{{ booking.resourceType }}</div>
-      </div>
-      <div class="text-sm text-slate-600">
-        {{ booking.start | date: 'EEE d MMM' }}
-        <span class="text-slate-400">{{ booking.start | date: 'HH:mm' }}–{{ booking.end | date: 'HH:mm' }}</span>
-        @if (booking.quantity > 1) { <span class="text-slate-400">· ×{{ booking.quantity }}</span> }
-      </div>
-      @if (booking.notes) {
-        <div class="max-w-60 truncate text-sm text-slate-500" [title]="booking.notes">{{ booking.notes }}</div>
-      }
-      <div class="ml-auto flex items-center gap-4">
-        <span class="text-xs text-slate-400">Booked {{ booking.createdOn | date: 'd MMM' }}</span>
-        <button
-          type="button"
-          (click)="cancel(booking)"
-          [disabled]="cancelling() === booking.id"
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-600 transition hover:border-rose-300 hover:text-rose-600 disabled:opacity-50"
-        >
-          {{ cancelling() === booking.id ? 'Cancelling…' : 'Cancel' }}
-        </button>
-      </div>
-    </div>
-  } @empty {
-    <p class="text-sm text-slate-400">
-      @if (search()) { Nothing matches “{{ search() }}”. }
-      @else { Nothing booked — <a routerLink="/resources" class="text-indigo-600 hover:underline">browse resources</a>. }
-    </p>
-  }
+<div class="mt-5 flex flex-wrap items-center gap-3">
+  <div class="flex gap-1 rounded-xl border border-slate-200 bg-white p-1 text-sm">
+    <button type="button" (click)="tab.set('upcoming')" class="tab" [class.tab-active]="tab() === 'upcoming'">
+      Upcoming <span class="tab-count">{{ counts().upcoming }}</span>
+    </button>
+    <button type="button" (click)="tab.set('past')" class="tab" [class.tab-active]="tab() === 'past'">
+      Past &amp; cancelled <span class="tab-count">{{ counts().past }}</span>
+    </button>
+  </div>
+  <div class="flex gap-1">
+    @for (option of types; track option) {
+      <button type="button" (click)="type.set(option)" class="chip" [class.chip-active]="type() === option">
+        {{ option === 'All' ? 'All types' : option }}
+      </button>
+    }
+  </div>
+  <app-search-box class="ml-auto" [(value)]="search" placeholder="Search bookings…" />
 </div>
 
-<h2 class="mt-7 text-sm font-semibold text-slate-600">Past & cancelled</h2>
-<div class="mt-2 flex flex-col gap-1.5">
-  @for (booking of past(); track booking.id) {
-    <div class="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-xl bg-white px-5 py-2.5 text-sm text-slate-500">
-      <span class="min-w-44">{{ booking.resourceName }}</span>
-      <span>
-        {{ booking.start | date: 'd MMM HH:mm' }}
-        @if (booking.quantity > 1) { · ×{{ booking.quantity }} }
-      </span>
-      @if (booking.notes) {
-        <span class="max-w-60 truncate text-slate-400" [title]="booking.notes">{{ booking.notes }}</span>
-      }
-      <span class="ml-auto flex items-center gap-4">
-        <span class="text-xs text-slate-400">Booked {{ booking.createdOn | date: 'd MMM' }}</span>
-        @if (booking.status === 'Cancelled') {
-          <span class="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-500">cancelled</span>
+<div class="mt-5 flex flex-col gap-5">
+  @for (day of days(); track day.date.getTime()) {
+    <section>
+      <h2 class="mb-2 text-xs font-semibold tracking-wide text-slate-500 uppercase">
+        {{ day.relative ?? (day.date | date: 'EEEE d MMMM') }}
+        @if (day.relative) {
+          <span class="font-normal text-slate-400 normal-case">· {{ day.date | date: 'EEE d MMM' }}</span>
         }
-      </span>
-    </div>
+      </h2>
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        @for (booking of day.bookings; track booking.id) {
+          <div
+            [id]="'booking-' + booking.id"
+            class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-slate-100 px-5 py-3 last:border-b-0"
+            [class.bg-indigo-50]="booking.id === highlighted"
+          >
+            <div class="w-28 text-sm font-semibold tabular-nums" [class.text-slate-400]="tab() === 'past'">
+              {{ booking.start | date: 'HH:mm' }}–{{ booking.end | date: 'HH:mm' }}
+            </div>
+            <div class="min-w-48 flex-1">
+              <a [routerLink]="['/resources', booking.resourceSlug]" class="font-medium hover:text-indigo-700">
+                {{ booking.resourceName }}
+              </a>
+              <span class="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+                {{ booking.resourceType }}
+              </span>
+              @if (booking.quantity > 1) {
+                <span class="ml-1 text-xs text-slate-500">×{{ booking.quantity }}</span>
+              }
+              @if (booking.status === 'Cancelled') {
+                <span class="ml-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-500">cancelled</span>
+              }
+              @if (booking.notes) {
+                <div class="mt-0.5 max-w-96 truncate text-xs text-slate-400" [title]="booking.notes">
+                  {{ booking.notes }}
+                </div>
+              }
+            </div>
+            <span class="text-xs text-slate-400">Booked {{ booking.createdOn | date: 'd MMM, HH:mm' }}</span>
+            <div class="flex items-center gap-2">
+              @if (tab() === 'upcoming') {
+                <a
+                  [routerLink]="['/resources', booking.resourceSlug]"
+                  [queryParams]="{ week: booking.start }"
+                  class="row-action"
+                >
+                  Open in calendar
+                </a>
+                <button
+                  type="button"
+                  (click)="cancel(booking)"
+                  [disabled]="cancelling() === booking.id"
+                  class="row-action hover:border-rose-300 hover:text-rose-600"
+                >
+                  {{ cancelling() === booking.id ? 'Cancelling…' : 'Cancel' }}
+                </button>
+              } @else {
+                <a [routerLink]="['/resources', booking.resourceSlug]" class="row-action">Book again</a>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </section>
   } @empty {
     <p class="text-sm text-slate-400">
-      @if (search()) { Nothing matches “{{ search() }}”. }
-      @else { No history yet. }
+      @if (search() || type() !== 'All') {
+        Nothing matches these filters.
+      } @else if (tab() === 'upcoming') {
+        Nothing booked — <a routerLink="/resources" class="text-indigo-600 hover:underline">browse resources</a>.
+      } @else {
+        No history yet.
+      }
     </p>
   }
 </div>
