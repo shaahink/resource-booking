@@ -66,6 +66,8 @@ public sealed class AssistantService(
             .ToListAsync();
 
         var candidates = AssistantPlanner.RankCandidates(intent, resources);
+        if (candidates.Count == 0)
+            return new AssistantParseResponse(AssistantPlanner.ExplainNoCandidates(intent, resources), []);
 
         var (proposals, firstRejection) = await ProposeAsync(candidates, intent, user, start, end, now);
         return new AssistantParseResponse(Summarise(start, end, proposals, firstRejection), proposals);

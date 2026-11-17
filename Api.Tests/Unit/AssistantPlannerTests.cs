@@ -43,6 +43,14 @@ public sealed class AssistantPlannerTests
     }
 
     [Fact]
+    public void A_time_inside_the_running_slot_snaps_to_the_slot_start()
+    {
+        // "now" at 09:02 London: the model echoes the clock, the booking takes the 09:00 slot.
+        var (start, _) = Window(Intent(date: "2026-10-19", startTime: "09:02"), Now.AddMinutes(2));
+        Assert.Equal(Now, start);
+    }
+
+    [Fact]
     public void Late_in_the_day_rolls_to_tomorrow_morning()
     {
         var evening = DateTimeOffset.Parse("2026-10-19T18:30:00Z", CultureInfo.InvariantCulture); // 19:30 London
@@ -126,5 +134,18 @@ public sealed class AssistantPlannerTests
         var resources = new[] { Resource(ResourceType.Room, name: "Room"), Resource(ResourceType.Car, name: "Car") };
         var ranked = AssistantPlanner.RankCandidates(Intent(type: "spaceship"), resources);
         Assert.Equal(["Room"], ranked.Select(r => r.Name).ToArray());
+    }
+
+    [Fact]
+    public void No_room_big_enough_names_the_largest_one()
+    {
+        var resources = new[]
+        {
+            Resource(ResourceType.Room, seats: 20, name: "Workshop"),
+            Resource(ResourceType.Room, seats: 4, name: "Huddle"),
+        };
+
+        var message = AssistantPlanner.ExplainNoCandidates(Intent(type: "Room", seats: 30), resources);
+        Assert.Equal("No room seats 30 — the largest is Workshop (20).", message);
     }
 }

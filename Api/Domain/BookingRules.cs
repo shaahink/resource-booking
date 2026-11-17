@@ -20,7 +20,7 @@ public interface IBookingRules
 public sealed class BookingRules : IBookingRules
 {
     /// <summary>The grid's slot length: the slot that is currently running stays bookable.</summary>
-    private static readonly TimeSpan SlotLength = TimeSpan.FromMinutes(30);
+    public static readonly TimeSpan SlotLength = TimeSpan.FromMinutes(30);
 
     public IReadOnlyList<RuleViolation> Validate(BookingContext context)
     {

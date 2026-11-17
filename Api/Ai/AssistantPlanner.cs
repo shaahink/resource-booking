@@ -67,6 +67,12 @@ public static class AssistantPlanner
             }
         }
 
+        // "now" comes back from the model as the clock time (09:02); book the running slot instead.
+        var slotMinutes = (int)BookingRules.SlotLength.TotalMinutes;
+        var runningSlot = new TimeOnly(localNow.Hour, localNow.Minute / slotMinutes * slotMinutes);
+        if (date == today && time >= runningSlot && time < runningSlot.AddMinutes(slotMinutes))
+            time = runningSlot;
+
         var local = date.ToDateTime(time, DateTimeKind.Unspecified);
         var start = new DateTimeOffset(local, BusinessTime.Zone.GetUtcOffset(local)).ToUniversalTime();
         var duration = Math.Clamp(intent.DurationMinutes ?? DefaultDurationMinutes, MinDurationMinutes, MaxDurationMinutes);
@@ -82,10 +88,7 @@ public static class AssistantPlanner
     /// <summary>Candidate resources for the intent, best fit first (smallest sufficient room).</summary>
     public static IReadOnlyList<Resource> RankCandidates(BookingIntent intent, IEnumerable<Resource> resources)
     {
-        var type = Enum.TryParse<ResourceType>(intent.ResourceType, ignoreCase: true, out var parsed)
-            ? parsed
-            : ResourceType.Room;
-
+        var type = RequestedType(intent);
         var candidates = resources.Where(r => r.IsActive && r.Type == type);
 
         if (type == ResourceType.Room && intent.SeatsNeeded is { } seats)
@@ -98,4 +101,30 @@ public static class AssistantPlanner
             .ThenBy(r => r.Name, StringComparer.Ordinal)
             .ToList();
     }
+
+    /// <summary>Said when nothing can be ranked at all. "Try another time" would send the user
+    /// hunting for a slot that cannot exist, so name the real limit instead.</summary>
+    public static string ExplainNoCandidates(BookingIntent intent, IEnumerable<Resource> resources)
+    {
+        var type = RequestedType(intent);
+        var largest = resources
+            .Where(r => r.IsActive && r.Type == type && r.Seats is not null)
+            .MaxBy(r => r.Seats);
+
+        if (type == ResourceType.Room && intent.SeatsNeeded is { } seats && largest is not null)
+            return $"No room seats {seats} — the largest is {largest.Name} ({largest.Seats}).";
+
+        var noun = type switch
+        {
+            ResourceType.Car => "pool car",
+            ResourceType.Catering => "catering",
+            _ => "room",
+        };
+        return $"There is no bookable {noun} right now.";
+    }
+
+    private static ResourceType RequestedType(BookingIntent intent) =>
+        Enum.TryParse<ResourceType>(intent.ResourceType, ignoreCase: true, out var parsed)
+            ? parsed
+            : ResourceType.Room;
 }
