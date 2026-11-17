@@ -61,7 +61,7 @@ builder.Services.AddSwaggerGen();
 
 // Domain & application services. The DbContext is the unit of work; services are the only
 // surface controllers see.
-builder.Services.AddScoped<IBookingRules, BookingRulesService>();
+builder.Services.AddScoped<IBookingRules, BookingRules>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IStatsService, StatsService>();

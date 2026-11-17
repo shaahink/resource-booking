@@ -10,7 +10,7 @@ public sealed class BookingRulesTests
     // Monday 19 Oct 2026, 09:00 Europe/London (BST, UTC+1).
     private static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-19T08:00:00Z", CultureInfo.InvariantCulture);
 
-    private readonly BookingRulesService _rules = new();
+    private readonly BookingRules _rules = new();
 
     private static Resource Room(int capacity = 1, bool isActive = true) => new()
     {

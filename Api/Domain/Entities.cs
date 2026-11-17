@@ -56,7 +56,7 @@ public sealed class ResourceConstraint
     public Guid ResourceId { get; set; }
     public ConstraintType Type { get; set; }
 
-    /// <summary>Typed parameters as JSON; shapes are documented in docs/contracts.md and parsed in BookingRules.</summary>
+    /// <summary>Typed parameters as JSON; shapes are documented in docs/contracts.md and read by ConstraintParams.</summary>
     public required string ParamsJson { get; set; }
 }
 
