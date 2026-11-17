@@ -8,6 +8,8 @@ namespace Api.Services;
 public interface IUserService
 {
     Task<IReadOnlyList<UserResponse>> GetAllAsync();
+    Task<IReadOnlyList<LoginOptionResponse>> GetLoginOptionsAsync();
+    Task<UserResponse?> FindActiveAsync(Guid id);
     Task<UserResponse> CreateAsync(SaveUserRequest request);
     Task<UserResponse> UpdateAsync(Guid id, SaveUserRequest request);
 }
@@ -19,6 +21,20 @@ public sealed class UserService(AppDbContext db) : IUserService
             .OrderBy(u => u.Name)
             .Select(u => new UserResponse(u.Id, u.Name, u.Email, u.Role, u.IsActive, u.CreatedOn))
             .ToListAsync();
+
+    /// <summary>The login screen's user picker. Disabled users cannot sign in, so they are not offered.</summary>
+    public async Task<IReadOnlyList<LoginOptionResponse>> GetLoginOptionsAsync() =>
+        await db.Users.AsNoTracking()
+            .Where(u => u.IsActive)
+            .OrderBy(u => u.Name)
+            .Select(u => new LoginOptionResponse(u.Id, u.Name, u.Role))
+            .ToListAsync();
+
+    public async Task<UserResponse?> FindActiveAsync(Guid id)
+    {
+        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id && u.IsActive);
+        return user is null ? null : ToResponse(user);
+    }
 
     public async Task<UserResponse> CreateAsync(SaveUserRequest request)
     {

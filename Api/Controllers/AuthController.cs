@@ -1,11 +1,11 @@
 using System.Security.Claims;
 using Api.Contracts;
-using Api.Data;
+using Api.Services;
+using Api.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace Api.Controllers;
 
@@ -16,22 +16,16 @@ namespace Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/auth")]
-public sealed class AuthController(AppDbContext db) : ControllerBase
+public sealed class AuthController(IUserService users) : ControllerBase
 {
-    /// <summary>The login screen's user picker. Disabled users cannot sign in, so they are not offered.</summary>
     [HttpGet("users")]
-    public async Task<IReadOnlyList<LoginOptionResponse>> GetUsers() =>
-        await db.Users.AsNoTracking()
-            .Where(u => u.IsActive)
-            .OrderBy(u => u.Name)
-            .Select(u => new LoginOptionResponse(u.Id, u.Name, u.Role))
-            .ToListAsync();
+    public Task<IReadOnlyList<LoginOptionResponse>> GetUsers() => users.GetLoginOptionsAsync();
 
     [HttpPost("login")]
     public async Task<ActionResult<UserResponse>> Login(LoginRequest request)
     {
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == request.UserId);
-        if (user is null || !user.IsActive) return Unauthorized();
+        var user = await users.FindActiveAsync(request.UserId);
+        if (user is null) return Unauthorized();
 
         var claims = new List<Claim>
         {
@@ -42,7 +36,7 @@ public sealed class AuthController(AppDbContext db) : ControllerBase
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         await HttpContext.SignInAsync(new ClaimsPrincipal(identity));
 
-        return new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedOn);
+        return user;
     }
 
     [HttpPost("logout")]
@@ -55,12 +49,6 @@ public sealed class AuthController(AppDbContext db) : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public async Task<ActionResult<UserResponse>> Me()
-    {
-        var id = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == id);
-        return user is null || !user.IsActive
-            ? Unauthorized()
-            : new UserResponse(user.Id, user.Name, user.Email, user.Role, user.IsActive, user.CreatedOn);
-    }
+    public async Task<ActionResult<UserResponse>> Me() =>
+        await users.FindActiveAsync(User.GetUserId()) is { } user ? user : Unauthorized();
 }
