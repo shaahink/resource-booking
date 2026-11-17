@@ -15,6 +15,11 @@ Built for the Aries / Add-On Products engineering case study.
 ```bash
 docker compose up -d        # Postgres 17 on localhost:5455
 cd Api && dotnet run        # API on http://localhost:5214 — migrates + seeds demo data
+```
+
+and in a second terminal:
+
+```bash
 cd client && npx ng serve   # SPA on http://localhost:4200 (proxies /api)
 ```
 
@@ -32,7 +37,7 @@ Testcontainers, so Docker must be running) and `cd client && npx ng test`.
 | Typed booking constraints per resource (duration, notice, advance window, opening hours, per-user limits) | Facilities encode policy once instead of policing it; users get told the rule, not just "no" |
 | Double-booking prevention at two layers (app + database) | Trust: the one failure booking software is never forgiven |
 | The grid shows the rules it enforces (closed hours shaded, the constraint strip said out loud) | Users see *why* a slot is off the table before they click, not after |
-| In-app notifications | A booking cancelled by an admin tells its owner, with the reason trail in one place |
+| In-app notifications | A booking cancelled by an admin tells its owner who cancelled it and when it was for |
 | Utilisation dashboard + usage history, free-text search on every list | Makes the data actionable: which rooms are wasted, when peak load hits, who the heavy users are |
 | NL booking assistant (*"book a room for 6 tomorrow 2pm"*) | Fastest path from intent to booking — and every AI proposal passes the same rules as the form |
 | AI utilisation digest for admins | The numbers, narrated — what a facilities manager would tell their boss |
@@ -42,9 +47,10 @@ Testcontainers, so Docker must be running) and `cd client && npx ng test`.
 
 ```
 client/  Angular 22 — standalone components, signals, Tailwind v4
-         features → ApiClient (abstract) → HTTP | in-memory mock (one flag)
+         features → ApiService (HTTP)
 Api/     .NET 10 — Controllers → Services → EF Core → PostgreSQL 17
-         Domain/ (entities + BookingRules)   Ai/ (assistant + insights)
+         Domain/ (entities, BookingRules, rule codes)   Ai/ (assistant + insights)
+         Contracts/ (requests + responses)   Web/ (errors, session checks)
          Data/ (DbContext, migrations, seed)
 ```
 
@@ -72,9 +78,9 @@ models and the TypeScript models.
 - **Hand-rolled availability grid, no calendar library.** The grid *is* the product
   here; owning it keeps the bundle small and every line explainable.
 - **Signals + standalone components** on the front; strict TypeScript with no `any`;
-  every component in separate `.ts`/`.html`/`.scss` files.
+  templates in their own `.html` files.
 - **Errors are RFC 7807 ProblemDetails everywhere**, with machine-readable rule codes in
-  a `violations` extension (409 = collision, 422 = other rule failures), so the client
+  a `violations` extension (409 when any violation is a collision, 422 for every other rule failure), so the client
   renders the server's reasons instead of inventing its own.
 - **No realtime channel.** An earlier iteration ran SignalR for live grid updates and
   notification toasts; it was cut to keep the system lean — the grid refetches around
@@ -97,7 +103,7 @@ upcoming per user, plus the capacity model.
 
 Resources are heterogeneous under one model: rooms and cars are *exclusive*
 (capacity 1), catering is *pooled* (40 portions per window; bookings carry a quantity
-and the rule is *sum of overlapping quantities ≤ capacity*). Back-to-back bookings are
+and the rule is *the most portions in use at any instant ≤ capacity*). Back-to-back bookings are
 allowed; cancelled bookings never count.
 
 ## Double-booking: belt and braces
@@ -117,13 +123,19 @@ Postgres and asserts exactly one 201 and one 409.
 
 ## The AI features (gpt-6-luna), boxed in
 
+The brief named gpt-4.1-nano. OpenAI retired it during the exercise and the exercise key
+now serves gpt-6-luna, so the app runs on that; the model is one setting
+(`OpenAI:Model`).
+
 The model is **never trusted and never required**:
 
 - The **assistant** does exactly one job — turn free text into a `BookingIntent`
   (type / seats / quantity / date / time / duration) through a strict JSON schema. It
   names no resource ids and takes no actions. Deterministic code then ranks candidates
-  (smallest sufficient room first) and dry-runs each through `BookingRules`; only
-  passing proposals are shown, and confirming one goes through the normal booking path.
+  (smallest sufficient room first) and checks each through the same
+  `BookingService.CheckRulesAsync` the form uses; only passing proposals are shown, and
+  confirming one goes through the normal booking path. When nothing can fit (a room for
+  30 when the largest seats 20) it says so instead of suggesting another time.
   Small models are poor at weekday arithmetic, so the prompt carries a 14-day calendar
   — verified live ("Monday" resolved to the wrong day without it, the right one with it).
 - The **insights digest** narrates numbers computed by `StatsService` through a strict
@@ -154,17 +166,17 @@ caveats are noted in the file (15-minute spin-down, 30-day database expiry).
 
 ## Testing
 
-- **86 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
+- **89 unit tests** — every rule in the engine (boundaries: back-to-back adjacency,
   exact-capacity fit, one-unit-over, pooled capacity measured at its peak rather than
   summed, past and backdated bookings vs the running slot, DST transition day, closed
   days, midnight close, malformed constraint params disabling only themselves), the one
   constraint-params reader, the assistant's planner and the `DATABASE_URL` conversion.
-- **29 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
+- **30 integration tests** on real Postgres via Testcontainers — auth, role enforcement,
   live session revalidation, both concurrency races (exclusive, and pooled — the one that
-  proves the advisory lock), cancellation + notification, past-booking rejection,
+  proves the advisory lock), cancellation + notification, past-booking rejection (create and cancel),
   duplicate email → 409, range and constraint validation, availability across UTC
   offsets, dashboard, AI 503s (no key) vs 502s (provider down) and rate limiting.
-- **23 frontend tests** — the grid slot math and closed-cell logic (mirroring the
+- **26 frontend tests** — the grid slot math, closed-cell logic and the durations the booking dialog offers (mirroring the
   server's strict overlap, peak capacity and opening-hours semantics), the constraint
   editor's lossless round trip, the 401 interceptor and component creation.
 - CI (GitHub Actions) runs format, build, both test suites and lint on every push —

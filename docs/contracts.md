@@ -1,4 +1,4 @@
-# API contract (frozen at S1)
+# API contract
 
 Source of truth triple: `Api/Contracts/Requests.cs` + `Api/Contracts/Responses.cs` ↔
 `client/src/app/core/models.ts` ↔ this file. Swagger (`/swagger` in dev) renders the
@@ -28,7 +28,7 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `GET /api/admin/users` | admin | | `UserResponse[]` including disabled |
 | `POST /api/admin/users` | admin | `SaveUserRequest` | 201 `UserResponse` · 409 duplicate email |
 | `PUT /api/admin/users/{id}` | admin | `SaveUserRequest` | `UserResponse` · 409 duplicate email |
-| `GET /api/admin/bookings?resourceId=&userId=&from=&to=` | admin | | `BookingResponse[]` (history, newest first, capped at 500) |
+| `GET /api/admin/bookings?resourceId=&userId=&from=&to=` | admin | | `BookingResponse[]` (history, newest first, capped at 500; `from`/`to` filter on start time, both inclusive) |
 | `GET /api/admin/stats/dashboard?from=&to=` | admin | | `DashboardResponse`. 400 unless the range is valid (below) |
 | `GET /api/admin/stats/summary` | admin | | `InsightsSummaryResponse` (AI digest, cached 10 min; 503 when no key; 502 when the model provider fails; 429 over the AI rate limit) |
 | `POST /api/admin/demo/reset` | admin | | 204 — wipes every table and reseeds the demo data |
@@ -62,7 +62,8 @@ RFC 7807 ProblemDetails. Rule failures add a `violations` extension:
 }
 ```
 
-409 = conflict with other bookings (`overlap_conflict`, `capacity_exceeded`) or a
+409 = at least one violation is a collision (`overlap_conflict`, `capacity_exceeded` — including
+a quantity above the resource's total) or a
 uniqueness conflict (duplicate user email, no `violations` extension);
 422 = any other rule failure; 400 = shape validation (FluentValidation — including
 `end > start`, bookings ≤ 14 days, and constraint params matching their type's shape)

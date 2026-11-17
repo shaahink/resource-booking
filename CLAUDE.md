@@ -79,9 +79,8 @@ A task is complete only when **all** of these are green. CI runs the same gates.
 - Every component: separate `.ts` / `.html` / `.scss` files. Tailwind-first styling;
   the `.scss` file is for what utilities can't express (start it with
   `@reference "tailwindcss";` if it uses `@apply`).
-- Features talk to data ONLY through the `ApiClient` abstract class. Never inject
-  `HttpClient` in a feature. `core/config.ts` `USE_MOCKS` picks mock vs real.
-- Keep `MockApiService` behaviour in sync with the real API when contracts change.
+- Features talk to data ONLY through `core/api.service.ts` (`ApiService`). Never inject
+  `HttpClient` in a feature. There is no mock API: tests stub `ApiService` where needed.
 - The availability grid is hand-rolled (CSS grid) — **no calendar library**.
 - No new runtime dependencies without updating this file's Decisions section.
 
@@ -99,8 +98,7 @@ A task is complete only when **all** of these are green. CI runs the same gates.
 ### Contract discipline
 
 `Api/Contracts/Requests.cs` + `Responses.cs` ↔ `client/src/app/core/models.ts` ↔ `docs/contracts.md` are one
-contract. A change to any of the three updates all three in the same commit, plus
-`MockApiService`.
+contract. A change to any of the three updates all three in the same commit.
 
 ### Git
 
@@ -112,6 +110,5 @@ contract. A change to any of the three updates all three in the same commit, plu
 PostgreSQL (exclusion constraint is the double-booking backstop) · cookie auth with a
 demo login-as picker (roles still enforced server-side) · one container serving the SPA
 from wwwroot (no CORS) · no realtime channel (SignalR removed) · gpt-6-luna for both
-AI features · Tailwind v4 via PostCSS · no environment-file machinery, one `USE_MOCKS`
-flag · data-protection keys in Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`)
+AI features · Tailwind v4 via PostCSS · no environment-file machinery · data-protection keys in Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`)
 so auth cookies survive restarts and spin-downs.
