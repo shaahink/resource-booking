@@ -1,6 +1,7 @@
 import { OpeningDays } from '../../core/constraints';
-import { AvailabilityBooking } from '../../core/models';
+import { AvailabilityBooking, ResourceConstraint } from '../../core/models';
 import {
+  allowedDurations,
   bookingsInSlot,
   isClosed,
   overlaps,
@@ -135,4 +136,28 @@ describe('grid math', () => {
       expect(isClosed(slotAt('2026-10-24T02:00:00Z'), null)).toBe(false);
     });
   });
+
+  describe('allowedDurations', () => {
+    const constraint = (type: ResourceConstraint['type'], params: object): ResourceConstraint =>
+      ({ type, paramsJson: JSON.stringify(params) }) as ResourceConstraint;
+    const weekdayHours = constraint('OpeningHours', {
+      days: { wed: [['08:00', '20:00']] },
+    });
+
+    it('caps choices at the max duration', () => {
+      const start = new Date('2026-10-21T09:00:00Z'); // Wed 10:00 London
+      const rules = [weekdayHours, constraint('MaxDurationMinutes', { minutes: 120 })];
+      expect(allowedDurations(rules, start)).toEqual([30, 60, 90, 120]);
+    });
+
+    it('stops at closing time', () => {
+      const start = new Date('2026-10-21T17:30:00Z'); // Wed 18:30 London, closes 20:00
+      expect(allowedDurations([weekdayHours], start)).toEqual([30, 60, 90]);
+    });
+
+    it('offers a full day when nothing limits it', () => {
+      expect(allowedDurations([], new Date('2026-10-21T07:00:00Z'))).toContain(480);
+    });
+  });
 });
+

@@ -51,6 +51,14 @@ export function describeConstraint(
   }
 }
 
+/** The MaxDurationMinutes cap in minutes, or null when there is none (or it is malformed). */
+export function maxDurationMinutes(
+  constraints: Pick<ResourceConstraint, 'type' | 'paramsJson'>[],
+): number | null {
+  const rule = constraints.find((c) => c.type === 'MaxDurationMinutes');
+  return rule ? (parseParams(rule.paramsJson).minutes ?? null) : null;
+}
+
 function parseParams(paramsJson: string): { minutes?: number; days?: number; count?: number } {
   try {
     const parsed = JSON.parse(paramsJson) as { minutes?: unknown; days?: unknown; count?: unknown };

@@ -1,5 +1,10 @@
 import { peakQuantity } from '../../core/capacity';
-import { DayKey, OpeningDays, parseOpeningDays } from '../../core/constraints';
+import {
+  DayKey,
+  maxDurationMinutes,
+  OpeningDays,
+  parseOpeningDays,
+} from '../../core/constraints';
 import { AvailabilityBooking, ResourceConstraint } from '../../core/models';
 
 // Pure slot math for the availability grid — kept free of Angular so it is trivially testable.
@@ -92,6 +97,21 @@ function londonDayAndMinutes(instant: Date): { day: DayKey; minutes: number } {
 export function openingDays(constraints: ResourceConstraint[]): OpeningDays | null {
   const constraint = constraints.find((c) => c.type === 'OpeningHours');
   return constraint ? parseOpeningDays(constraint.paramsJson) : null;
+}
+
+const DURATION_CHOICES = [30, 60, 90, 120, 180, 240, 480];
+
+/** The durations the booking dialog offers from `start`: within the resource's max length and
+ *  inside its opening hours, so no choice fails for a reason the form already knew. */
+export function allowedDurations(constraints: ResourceConstraint[], start: Date): number[] {
+  const max = maxDurationMinutes(constraints);
+  const days = openingDays(constraints);
+  const fits = DURATION_CHOICES.filter(
+    (minutes) =>
+      (max === null || minutes <= max) &&
+      !isClosed({ start, end: new Date(start.getTime() + minutes * 60_000) }, days),
+  );
+  return fits.length > 0 ? fits : [DURATION_CHOICES[0]];
 }
 
 /** True when no opening window fully contains the slot. */

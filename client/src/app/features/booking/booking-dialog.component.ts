@@ -1,13 +1,14 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { ApiService } from '../../core/api.service';
 import { Booking, Resource, RuleViolation, toRuleProblem } from '../../core/models';
+import { allowedDurations } from './grid';
 
 /**
  * Confirmation dialog for one slot. The server is the authority on every rule —
- * this dialog collects duration/quantity/notes, pre-checks only what the form itself
- * can get wrong (an empty or out-of-range quantity), and renders the violations
- * that come back rather than pre-judging them.
+ * this dialog collects duration/quantity/notes, offers only durations that fit the
+ * resource's max length and opening hours, pre-checks an empty or out-of-range quantity,
+ * and renders whatever violations still come back.
  */
 @Component({
   selector: 'app-booking-dialog',
@@ -24,8 +25,12 @@ export class BookingDialogComponent {
   readonly booked = output<Booking>();
   readonly closed = output<void>();
 
-  protected readonly durations = [30, 60, 90, 120, 180, 240];
-  protected readonly durationMinutes = signal(60);
+  protected readonly durations = computed(() =>
+    allowedDurations(this.resource().constraints, this.slotStart()),
+  );
+  protected readonly durationMinutes = linkedSignal(() =>
+    this.durations().includes(60) ? 60 : this.durations()[0],
+  );
   protected readonly quantity = signal(1);
   protected readonly notes = signal('');
   protected readonly busy = signal(false);
