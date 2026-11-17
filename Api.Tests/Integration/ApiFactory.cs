@@ -40,7 +40,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
             // Keyless whatever the developer's environment holds: the 503 path is under test.
             services.RemoveAll<AiOptions>();
-            services.AddSingleton(new AiOptions(ApiKey: null, Model: "gpt-4.1-nano"));
+            services.AddSingleton(new AiOptions(ApiKey: null, Model: "gpt-6-luna"));
         });
     }
 

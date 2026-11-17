@@ -111,7 +111,7 @@ contract. A change to any of the three updates all three in the same commit, plu
 
 PostgreSQL (exclusion constraint is the double-booking backstop) · cookie auth with a
 demo login-as picker (roles still enforced server-side) · one container serving the SPA
-from wwwroot (no CORS) · no realtime channel (SignalR removed) · gpt-4.1-nano for both
+from wwwroot (no CORS) · no realtime channel (SignalR removed) · gpt-6-luna for both
 AI features · Tailwind v4 via PostCSS · no environment-file machinery, one `USE_MOCKS`
 flag · data-protection keys in Postgres (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`)
 so auth cookies survive restarts and spin-downs.

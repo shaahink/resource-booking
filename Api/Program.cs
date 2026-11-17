@@ -69,11 +69,11 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDemoService, DemoService>();
 
-// AI (gpt-4.1-nano). Key from the environment only; without one the endpoints return 503
+// AI (gpt-6-luna). Key from the environment only; without one the endpoints return 503
 // and the UI hides the features.
 builder.Services.AddSingleton(new AiOptions(
     builder.Configuration["OPENAI_API_KEY"],
-    builder.Configuration["OpenAI:Model"] ?? "gpt-4.1-nano"));
+    builder.Configuration["OpenAI:Model"] ?? "gpt-6-luna"));
 builder.Services.AddScoped<IAssistantService, AssistantService>();
 builder.Services.AddScoped<IInsightsService, InsightsService>();
 

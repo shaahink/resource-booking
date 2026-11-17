@@ -115,7 +115,7 @@ allowed; cancelled bookings never count.
 The integration suite fires two simultaneous requests at one slot against a real
 Postgres and asserts exactly one 201 and one 409.
 
-## The AI features (gpt-4.1-nano), boxed in
+## The AI features (gpt-6-luna), boxed in
 
 The model is **never trusted and never required**:
 

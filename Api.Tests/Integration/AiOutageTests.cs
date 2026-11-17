@@ -19,7 +19,7 @@ public sealed class AiOutageTests(ApiFactory factory) : IClassFixture<ApiFactory
         using var outage = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.RemoveAll<AiOptions>();
-            services.AddSingleton(new AiOptions("sk-test", "gpt-4.1-nano", new Uri("http://127.0.0.1:9/v1")));
+            services.AddSingleton(new AiOptions("sk-test", "gpt-6-luna", new Uri("http://127.0.0.1:9/v1")));
         }));
         var client = outage.CreateClient(new() { HandleCookies = true });
         await client.PostAsJsonAsync("/api/auth/login", new { userId = SeedData.AdminId });
