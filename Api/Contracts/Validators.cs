@@ -14,8 +14,8 @@ public sealed class CreateBookingRequestValidator : AbstractValidator<CreateBook
     public CreateBookingRequestValidator()
     {
         RuleFor(x => x.ResourceId).NotEmpty();
-        RuleFor(x => x.Quantity).InclusiveBetween(1, 1000);
-        RuleFor(x => x.Notes).MaximumLength(500);
+        RuleFor(x => x.Quantity).InclusiveBetween(1, FieldLimits.MaxQuantity);
+        RuleFor(x => x.Notes).MaximumLength(FieldLimits.Notes);
         RuleFor(x => x.End)
             .GreaterThan(x => x.Start).WithMessage("End must be after start.")
             .Must((request, end) => end - request.Start <= TimeSpan.FromDays(MaxBookingDays))
@@ -27,11 +27,11 @@ public sealed class SaveResourceRequestValidator : AbstractValidator<SaveResourc
 {
     public SaveResourceRequestValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
-        RuleFor(x => x.Capacity).InclusiveBetween(1, 10_000);
-        RuleFor(x => x.Seats).InclusiveBetween(1, 10_000).When(x => x.Seats is not null);
-        RuleFor(x => x.Location).MaximumLength(200);
-        RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(FieldLimits.Name);
+        RuleFor(x => x.Capacity).InclusiveBetween(1, FieldLimits.MaxCapacity);
+        RuleFor(x => x.Seats).InclusiveBetween(1, FieldLimits.MaxCapacity).When(x => x.Seats is not null);
+        RuleFor(x => x.Location).MaximumLength(FieldLimits.Location);
+        RuleFor(x => x.Description).MaximumLength(FieldLimits.Description);
         RuleFor(x => x.Type).IsInEnum();
         RuleFor(x => x.Constraints).NotNull();
         RuleForEach(x => x.Constraints)
@@ -61,8 +61,8 @@ public sealed class SaveUserRequestValidator : AbstractValidator<SaveUserRequest
 {
     public SaveUserRequestValidator()
     {
-        RuleFor(x => x.Name).NotEmpty().MaximumLength(120);
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(200);
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(FieldLimits.Name);
+        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(FieldLimits.Email);
         RuleFor(x => x.Role).IsInEnum();
     }
 }
@@ -71,6 +71,6 @@ public sealed class AssistantParseRequestValidator : AbstractValidator<Assistant
 {
     public AssistantParseRequestValidator()
     {
-        RuleFor(x => x.Text).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.Text).NotEmpty().MaximumLength(FieldLimits.AssistantText);
     }
 }

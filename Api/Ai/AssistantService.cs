@@ -27,7 +27,8 @@ public sealed class AssistantService(
     ILogger<AssistantService> logger) : IAssistantService
 {
     private const int MaxProposals = 3;
-    private static readonly TimeSpan ModelTimeout = TimeSpan.FromSeconds(15);
+    /// <summary>Days of calendar the prompt carries so the model never does weekday arithmetic.</summary>
+    private const int CalendarDays = 14;
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private const string IntentSchema = """
@@ -112,7 +113,7 @@ public sealed class AssistantService(
 
     /// <summary>Small models are unreliable at weekday arithmetic — hand them the answer sheet.</summary>
     private static string BuildCalendar(DateTimeOffset localNow) =>
-        string.Join(", ", Enumerable.Range(0, 14).Select(i => localNow.AddDays(i).ToString("ddd yyyy-MM-dd", CultureInfo.InvariantCulture)));
+        string.Join(", ", Enumerable.Range(0, CalendarDays).Select(i => localNow.AddDays(i).ToString("ddd yyyy-MM-dd", CultureInfo.InvariantCulture)));
 
     private async Task<BookingIntent?> ExtractIntentAsync(string text)
     {
@@ -126,7 +127,7 @@ public sealed class AssistantService(
                 "booking_intent", BinaryData.FromString(IntentSchema), jsonSchemaIsStrict: true),
         };
 
-        using var timeout = new CancellationTokenSource(ModelTimeout);
+        using var timeout = new CancellationTokenSource(options.Timeout);
         ChatCompletion completion;
         try
         {

@@ -6,6 +6,7 @@ import {
   parseOpeningDays,
 } from '../../core/constraints';
 import { AvailabilityBooking, ResourceConstraint } from '../../core/models';
+import { DURATION_CHOICES_MINUTES, MINUTES_PER_HOUR, MS_PER_MINUTE, SLOT_MINUTES } from '../../core/settings';
 
 // Pure slot math for the availability grid — kept free of Angular so it is trivially testable.
 
@@ -38,7 +39,7 @@ export function slotsForDay(
   day: Date,
   fromHour: number,
   toHour: number,
-  stepMinutes = 30,
+  stepMinutes = SLOT_MINUTES,
 ): GridSlot[] {
   const slots: GridSlot[] = [];
   const cursor = new Date(day);
@@ -46,7 +47,7 @@ export function slotsForDay(
   const dayEnd = new Date(day);
   dayEnd.setHours(toHour, 0, 0, 0);
   while (cursor < dayEnd) {
-    const end = new Date(cursor.getTime() + stepMinutes * 60_000);
+    const end = new Date(cursor.getTime() + stepMinutes * MS_PER_MINUTE);
     slots.push({ start: new Date(cursor), end });
     cursor.setTime(end.getTime());
   }
@@ -89,7 +90,7 @@ function londonDayAndMinutes(instant: Date): { day: DayKey; minutes: number } {
   const part = (type: string): string => parts.find((p) => p.type === type)?.value ?? '';
   return {
     day: part('weekday').toLowerCase() as DayKey,
-    minutes: Number(part('hour')) * 60 + Number(part('minute')),
+    minutes: Number(part('hour')) * MINUTES_PER_HOUR + Number(part('minute')),
   };
 }
 
@@ -99,26 +100,24 @@ export function openingDays(constraints: ResourceConstraint[]): OpeningDays | nu
   return constraint ? parseOpeningDays(constraint.paramsJson) : null;
 }
 
-const DURATION_CHOICES = [30, 60, 90, 120, 180, 240, 480];
-
 /** The durations the booking dialog offers from `start`: within the resource's max length and
  *  inside its opening hours, so no choice fails for a reason the form already knew. */
 export function allowedDurations(constraints: ResourceConstraint[], start: Date): number[] {
   const max = maxDurationMinutes(constraints);
   const days = openingDays(constraints);
-  const fits = DURATION_CHOICES.filter(
+  const fits = DURATION_CHOICES_MINUTES.filter(
     (minutes) =>
       (max === null || minutes <= max) &&
-      !isClosed({ start, end: new Date(start.getTime() + minutes * 60_000) }, days),
+      !isClosed({ start, end: new Date(start.getTime() + minutes * MS_PER_MINUTE) }, days),
   );
-  return fits.length > 0 ? fits : [DURATION_CHOICES[0]];
+  return fits.length > 0 ? fits : [DURATION_CHOICES_MINUTES[0]];
 }
 
 /** True when no opening window fully contains the slot. */
 export function isClosed(slot: GridSlot, days: OpeningDays | null): boolean {
   if (!days) return false;
   const start = londonDayAndMinutes(slot.start);
-  const endMinutes = start.minutes + (slot.end.getTime() - slot.start.getTime()) / 60_000;
+  const endMinutes = start.minutes + (slot.end.getTime() - slot.start.getTime()) / MS_PER_MINUTE;
   const windows = days[start.day] ?? [];
   return !windows.some(
     ([open, close]) => toMinutes(open) <= start.minutes && endMinutes <= toMinutes(close),
@@ -127,5 +126,5 @@ export function isClosed(slot: GridSlot, days: OpeningDays | null): boolean {
 
 function toMinutes(hhmm: string): number {
   const [hours, minutes] = hhmm.split(':').map(Number);
-  return (hours || 0) * 60 + (minutes || 0);
+  return (hours || 0) * MINUTES_PER_HOUR + (minutes || 0);
 }

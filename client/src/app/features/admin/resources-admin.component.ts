@@ -22,6 +22,7 @@ import {
   toConstraintDraft,
   toParamsJson,
 } from './constraint-draft';
+import { MAX_CAPACITY } from '../../core/settings';
 
 /** The scalar fields, edited in place in the table row. Rules and description live in the drawer. */
 interface RowDraft {
@@ -46,9 +47,9 @@ interface ResourceDraft {
   constraints: ConstraintDraft[];
 }
 
-/** Capacity and seats: whole numbers from 1 to the server's bound of 10,000; seats optional. */
+/** Capacity and seats: whole numbers from 1 to the server's bound; seats optional. */
 function unitsValid(capacity: number | null, seats: number | null): boolean {
-  return isWholeInRange(capacity, 10_000) && (seats === null || isWholeInRange(seats, 10_000));
+  return isWholeInRange(capacity, MAX_CAPACITY) && (seats === null || isWholeInRange(seats, MAX_CAPACITY));
 }
 
 @Component({

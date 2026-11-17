@@ -25,10 +25,7 @@ public sealed class InsightsService(
     IMemoryCache cache,
     ILogger<InsightsService> logger) : IInsightsService
 {
-    private const int DigestDays = 14;
     private const string CacheKey = "insights-digest";
-    private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan ModelTimeout = TimeSpan.FromSeconds(15);
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     // Structured output so the UI can format the card instead of rendering one text blob.
@@ -51,7 +48,7 @@ public sealed class InsightsService(
 
         return (await cache.GetOrCreateAsync(CacheKey, entry =>
         {
-            entry.AbsoluteExpirationRelativeToNow = CacheFor;
+            entry.AbsoluteExpirationRelativeToNow = options.DigestCache;
             return GenerateAsync();
         }))!;
     }
@@ -59,10 +56,10 @@ public sealed class InsightsService(
     private async Task<InsightsSummaryResponse> GenerateAsync()
     {
         var to = DateTimeOffset.UtcNow;
-        var dashboard = await stats.GetDashboardAsync(to.AddDays(-DigestDays), to);
+        var dashboard = await stats.GetDashboardAsync(to.AddDays(-options.DigestDays), to);
         var data = JsonSerializer.Serialize(new
         {
-            days = DigestDays,
+            days = options.DigestDays,
             dashboard.OverallUtilisationPct,
             dashboard.BookingsInRange,
             utilisation = dashboard.Utilisation.Select(u => new { u.Name, u.Type, u.UtilisationPct, u.BookingsCount }),
@@ -77,7 +74,7 @@ public sealed class InsightsService(
                 "utilisation_digest", BinaryData.FromString(DigestSchema), jsonSchemaIsStrict: true),
         };
 
-        using var timeout = new CancellationTokenSource(ModelTimeout);
+        using var timeout = new CancellationTokenSource(options.Timeout);
         try
         {
             ChatCompletion completion = await client.CompleteChatAsync(
@@ -93,7 +90,7 @@ public sealed class InsightsService(
 
             var digest = JsonSerializer.Deserialize<Digest>(completion.Content[0].Text, JsonOptions)
                 ?? throw new JsonException("Empty digest");
-            return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, DigestDays, DateTimeOffset.UtcNow);
+            return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, options.DigestDays, DateTimeOffset.UtcNow);
         }
         catch (Exception ex)
         {

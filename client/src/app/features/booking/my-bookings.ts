@@ -1,4 +1,5 @@
 import { Booking } from '../../core/models';
+import { MS_PER_DAY } from '../../core/settings';
 
 // Pure grouping for the My bookings page — free of Angular so it is trivially testable.
 
@@ -10,7 +11,6 @@ export interface BookingDay {
   bookings: Booking[];
 }
 
-const DAY_MS = 86_400_000;
 const RELATIVE_DAYS = new Map([
   [-1, 'Yesterday'],
   [0, 'Today'],
@@ -26,7 +26,7 @@ export function groupByDay(bookings: readonly Booking[], now: Date): BookingDay[
     const date = startOfDay(new Date(booking.start));
     let day = days.at(-1);
     if (!day || day.date.getTime() !== date.getTime()) {
-      const offset = Math.round((date.getTime() - today) / DAY_MS);
+      const offset = Math.round((date.getTime() - today) / MS_PER_DAY);
       day = { date, relative: RELATIVE_DAYS.get(offset) ?? null, bookings: [] };
       days.push(day);
     }

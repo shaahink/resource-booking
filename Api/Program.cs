@@ -69,11 +69,10 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IDemoService, DemoService>();
 
-// AI (gpt-6-luna). Key from the environment only; without one the endpoints return 503
-// and the UI hides the features.
-builder.Services.AddSingleton(new AiOptions(
-    builder.Configuration["OPENAI_API_KEY"],
-    builder.Configuration["OpenAI:Model"] ?? "gpt-6-luna"));
+// AI: model, timeout and digest window from the "OpenAI" section; the key from the environment
+// only. Without a key the endpoints return 503 and the UI hides the features.
+var aiOptions = builder.Configuration.GetSection("OpenAI").Get<AiOptions>() ?? new AiOptions();
+builder.Services.AddSingleton(aiOptions with { ApiKey = builder.Configuration["OPENAI_API_KEY"] });
 builder.Services.AddScoped<IAssistantService, AssistantService>();
 builder.Services.AddScoped<IInsightsService, InsightsService>();
 

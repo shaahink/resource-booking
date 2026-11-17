@@ -1,4 +1,5 @@
 import { DatePipe } from '@angular/common';
+import { HttpStatusCode } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -76,7 +77,7 @@ export class BrowseComponent {
       },
       error: (err: { status?: number }) => {
         this.assistantError.set(
-          err.status === 503
+          err.status === HttpStatusCode.ServiceUnavailable
             ? 'The assistant is not configured on this deployment.'
             : 'The assistant could not process that — try the grid below.',
         );

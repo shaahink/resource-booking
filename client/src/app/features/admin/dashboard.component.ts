@@ -1,8 +1,10 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { HttpStatusCode } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../../core/api.service';
 import { Dashboard, InsightsSummary } from '../../core/models';
+import { DASHBOARD_RANGES_DAYS, DEFAULT_DASHBOARD_RANGE_DAYS, MS_PER_DAY } from '../../core/settings';
 
 @Component({
   selector: 'app-dashboard',
@@ -13,8 +15,8 @@ import { Dashboard, InsightsSummary } from '../../core/models';
 export class DashboardComponent {
   private readonly api = inject(ApiService);
 
-  protected readonly rangeDays = signal(14);
-  protected readonly ranges = [7, 14, 30];
+  protected readonly rangeDays = signal(DEFAULT_DASHBOARD_RANGE_DAYS);
+  protected readonly ranges = DASHBOARD_RANGES_DAYS;
   protected readonly dashboard = signal<Dashboard | null>(null);
   protected readonly insights = signal<InsightsSummary | null>(null);
   protected readonly insightsError = signal<string | null>(null);
@@ -38,7 +40,7 @@ export class DashboardComponent {
 
   /** yyyy-MM-dd of the range start, so a click into history keeps the same window. */
   protected readonly rangeStart = computed(() =>
-    new Date(Date.now() - this.rangeDays() * 86_400_000).toISOString().slice(0, 10),
+    new Date(Date.now() - this.rangeDays() * MS_PER_DAY).toISOString().slice(0, 10),
   );
 
   protected readonly maxPeakCount = computed(() =>
@@ -57,7 +59,7 @@ export class DashboardComponent {
 
   private load(): void {
     const to = new Date();
-    const from = new Date(to.getTime() - this.rangeDays() * 86_400_000);
+    const from = new Date(to.getTime() - this.rangeDays() * MS_PER_DAY);
     this.api
       .getDashboard(from.toISOString(), to.toISOString())
       .subscribe((dashboard) => this.dashboard.set(dashboard));
@@ -69,7 +71,7 @@ export class DashboardComponent {
       next: (insights) => this.insights.set(insights),
       error: (err: { status?: number; error?: { title?: string } }) =>
         this.insightsError.set(
-          err.status === 503
+          err.status === HttpStatusCode.ServiceUnavailable
             ? 'AI insights are not configured on this deployment.'
             : (err.error?.title ?? 'Could not generate insights right now.'),
         ),

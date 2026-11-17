@@ -1,4 +1,5 @@
 import { ResourceConstraint } from './models';
+import { MINUTES_PER_DAY, MINUTES_PER_HOUR } from './settings';
 
 // Human-readable constraint descriptions, shared by the grid header and the admin table.
 // Parsing mirrors the server's leniency: malformed params disable a rule there, so here
@@ -73,8 +74,10 @@ function parseParams(paramsJson: string): { minutes?: number; days?: number; cou
 }
 
 function duration(minutes: number): string {
-  if (minutes % 1440 === 0) return minutes === 1440 ? '1 day' : `${minutes / 1440} days`;
-  if (minutes % 60 === 0) return minutes === 60 ? '1 h' : `${minutes / 60} h`;
+  if (minutes % MINUTES_PER_DAY === 0)
+    return minutes === MINUTES_PER_DAY ? '1 day' : `${minutes / MINUTES_PER_DAY} days`;
+  if (minutes % MINUTES_PER_HOUR === 0)
+    return minutes === MINUTES_PER_HOUR ? '1 h' : `${minutes / MINUTES_PER_HOUR} h`;
   return `${minutes} min`;
 }
 

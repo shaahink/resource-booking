@@ -3,6 +3,7 @@ import { Component, computed, inject, input, linkedSignal, output, signal } from
 import { ApiService } from '../../core/api.service';
 import { Booking, Resource, RuleViolation, toRuleProblem } from '../../core/models';
 import { allowedDurations } from './grid';
+import { DEFAULT_DURATION_MINUTES, MS_PER_MINUTE } from '../../core/settings';
 
 /**
  * Confirmation dialog for one slot. The server is the authority on every rule —
@@ -29,7 +30,7 @@ export class BookingDialogComponent {
     allowedDurations(this.resource().constraints, this.slotStart()),
   );
   protected readonly durationMinutes = linkedSignal(() =>
-    this.durations().includes(60) ? 60 : this.durations()[0],
+    this.durations().includes(DEFAULT_DURATION_MINUTES) ? DEFAULT_DURATION_MINUTES : this.durations()[0],
   );
   protected readonly quantity = signal(1);
   protected readonly notes = signal('');
@@ -37,7 +38,7 @@ export class BookingDialogComponent {
   protected readonly violations = signal<RuleViolation[]>([]);
 
   protected readonly end = computed(
-    () => new Date(this.slotStart().getTime() + this.durationMinutes() * 60_000),
+    () => new Date(this.slotStart().getTime() + this.durationMinutes() * MS_PER_MINUTE),
   );
 
   protected readonly quantityError = computed(() => {

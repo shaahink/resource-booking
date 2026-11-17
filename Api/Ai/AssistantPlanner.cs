@@ -68,7 +68,7 @@ public static class AssistantPlanner
         }
 
         // "now" comes back from the model as the clock time (09:02); book the running slot instead.
-        var slotMinutes = (int)BookingRules.SlotLength.TotalMinutes;
+        const int slotMinutes = BookingRules.SlotMinutes;
         var runningSlot = new TimeOnly(localNow.Hour, localNow.Minute / slotMinutes * slotMinutes);
         if (date == today && time >= runningSlot && time < runningSlot.AddMinutes(slotMinutes))
             time = runningSlot;

@@ -17,6 +17,7 @@ import {
   weekDays,
 } from './grid';
 import { BookingDialogComponent } from './booking-dialog.component';
+import { CLOCK_TICK_MS, GRID_END_HOUR, GRID_START_HOUR, TOAST_MS } from '../../core/settings';
 
 interface GridCell {
   slot: GridSlot;
@@ -32,8 +33,6 @@ interface GridDay {
   cells: GridCell[];
 }
 
-const DAY_START_HOUR = 7;
-const DAY_END_HOUR = 21;
 
 @Component({
   selector: 'app-resource-detail',
@@ -54,7 +53,7 @@ export class ResourceDetailComponent {
   protected readonly toast = signal<string | null>(null);
 
   /** Ticks every minute so cells flip to past while the page stays open. */
-  private readonly now = toSignal(interval(60_000).pipe(map(() => new Date())), {
+  private readonly now = toSignal(interval(CLOCK_TICK_MS).pipe(map(() => new Date())), {
     initialValue: new Date(),
   });
 
@@ -67,8 +66,8 @@ export class ResourceDetailComponent {
   protected readonly hasOpeningHours = computed(() => this.opening() !== null);
 
   protected readonly hourLabels = Array.from(
-    { length: DAY_END_HOUR - DAY_START_HOUR },
-    (_, i) => `${String(DAY_START_HOUR + i).padStart(2, '0')}:00`,
+    { length: GRID_END_HOUR - GRID_START_HOUR },
+    (_, i) => `${String(GRID_START_HOUR + i).padStart(2, '0')}:00`,
   );
 
   protected readonly days = computed<GridDay[]>(() => {
@@ -80,7 +79,7 @@ export class ResourceDetailComponent {
 
     return weekDays(this.anchor()).map((date) => ({
       date,
-      cells: slotsForDay(date, DAY_START_HOUR, DAY_END_HOUR).map((slot) => {
+      cells: slotsForDay(date, GRID_START_HOUR, GRID_END_HOUR).map((slot) => {
         const used = usedQuantity(bookings, slot);
         return {
           slot,
@@ -146,7 +145,7 @@ export class ResourceDetailComponent {
         minute: '2-digit',
       })}–${new Date(booking.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`,
     );
-    setTimeout(() => this.toast.set(null), 4000);
+    setTimeout(() => this.toast.set(null), TOAST_MS);
   }
 
   protected isToday(date: Date): boolean {
