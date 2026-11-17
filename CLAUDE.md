@@ -76,13 +76,22 @@ A task is complete only when **all** of these are green. CI runs the same gates.
 
 - Angular 22, standalone components, **signals** for component state. No NgModules.
 - **Strict TypeScript, no `any`** (write a precise type or `unknown` + narrowing).
-- Every component: separate `.ts` / `.html` / `.scss` files. Tailwind-first styling;
-  the `.scss` file is for what utilities can't express (start it with
-  `@reference "tailwindcss";` if it uses `@apply`).
+- Every component: separate `.ts` / `.html` files, plus a `.scss` only for what utilities
+  can't express (start it with `@reference "tailwindcss";` if it uses `@apply`). Controls
+  shared across pages (tabs, chips, row actions) live in `styles.css`.
+- **No magic numbers.** Client numbers live in `core/settings.ts` (noting the server
+  constant each mirrors); status checks use `HttpStatusCode`.
 - Features talk to data ONLY through `core/api.service.ts` (`ApiService`). Never inject
   `HttpClient` in a feature. There is no mock API: tests stub `ApiService` where needed.
 - The availability grid is hand-rolled (CSS grid) — **no calendar library**.
 - No new runtime dependencies without updating this file's Decisions section.
+
+### Constants and configuration
+
+- Column lengths and value bounds: `Domain/FieldLimits.cs`, used by both the EF mapping
+  and the validators. Slot length: `BookingRules.SlotMinutes`.
+- Operational knobs (model, timeout, digest window, digest cache): the `OpenAI` section of
+  `appsettings.json`, bound to `AiOptions`. Secrets only from the environment.
 
 ### Tests
 
