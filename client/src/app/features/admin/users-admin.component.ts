@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { SaveUserRequest, User, UserRole } from '../../core/models';
 import { matchesQuery } from '../../core/search';
@@ -25,7 +25,7 @@ const EMAIL_SHAPE = /^\S+@\S+\.\S+$/;
   styleUrl: './users-admin.component.scss',
 })
 export class UsersAdminComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
 
   protected readonly users = signal<User[]>([]);

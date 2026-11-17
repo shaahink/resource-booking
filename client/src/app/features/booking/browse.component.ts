@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import {
   AssistantParseResponse,
   AssistantProposal,
@@ -20,7 +20,7 @@ import { SearchBoxComponent } from '../../shared/search-box.component';
   styleUrl: './browse.component.scss',
 })
 export class BrowseComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   protected readonly resources = signal<Resource[]>([]);
   protected readonly filter = signal<ResourceType | 'All'>('All');

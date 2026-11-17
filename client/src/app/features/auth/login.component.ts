@@ -1,5 +1,5 @@
 import { Component, inject, signal } from '@angular/core';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { LoginOption } from '../../core/models';
 
@@ -13,7 +13,7 @@ import { LoginOption } from '../../core/models';
   styleUrl: './login.component.scss',
 })
 export class LoginComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
   protected readonly auth = inject(AuthService);
 
   protected readonly users = signal<LoginOption[]>([]);

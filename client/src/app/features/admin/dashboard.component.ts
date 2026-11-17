@@ -1,6 +1,6 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { Dashboard, InsightsSummary } from '../../core/models';
 
 @Component({
@@ -10,7 +10,7 @@ import { Dashboard, InsightsSummary } from '../../core/models';
   styleUrl: './dashboard.component.scss',
 })
 export class DashboardComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   protected readonly rangeDays = signal(14);
   protected readonly ranges = [7, 14, 30];

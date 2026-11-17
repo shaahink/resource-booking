@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { describeConstraint } from '../../core/constraints';
 import {
   ConstraintType,
@@ -58,7 +58,7 @@ function unitsValid(capacity: number | null, seats: number | null): boolean {
   styleUrl: './resources-admin.component.scss',
 })
 export class ResourcesAdminComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   protected readonly resources = signal<Resource[]>([]);
   protected readonly search = signal('');

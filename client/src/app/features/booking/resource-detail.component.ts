@@ -3,7 +3,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, map } from 'rxjs';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { describeConstraint } from '../../core/constraints';
 import { Availability, Booking, Resource } from '../../core/models';
 import {
@@ -41,7 +41,7 @@ const DAY_END_HOUR = 21;
   styleUrl: './resource-detail.component.scss',
 })
 export class ResourceDetailComponent implements OnInit {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
 
   private readonly id = this.route.snapshot.paramMap.get('id')!;

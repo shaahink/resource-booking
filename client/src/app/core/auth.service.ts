@@ -1,12 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { EMPTY, catchError, finalize, of, tap } from 'rxjs';
-import { ApiClient } from './api-client';
+import { ApiService } from './api.service';
 import { User } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
   private readonly router = inject(Router);
 
   private readonly user = signal<User | null>(null);

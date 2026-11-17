@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { Booking, Resource, User } from '../../core/models';
 import { matchesQuery } from '../../core/search';
 import { SearchBoxComponent } from '../../shared/search-box.component';
@@ -13,7 +13,7 @@ import { SearchBoxComponent } from '../../shared/search-box.component';
   styleUrl: './history.component.scss',
 })
 export class HistoryComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   protected readonly bookings = signal<Booking[]>([]);
   protected readonly resources = signal<Resource[]>([]);

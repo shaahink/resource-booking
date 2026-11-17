@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, output, signal } from '@angular/core';
-import { ApiClient } from '../../core/api-client';
+import { ApiService } from '../../core/api.service';
 import { Booking, Resource, RuleViolation, toRuleProblem } from '../../core/models';
 
 /**
@@ -16,7 +16,7 @@ import { Booking, Resource, RuleViolation, toRuleProblem } from '../../core/mode
   styleUrl: './booking-dialog.component.scss',
 })
 export class BookingDialogComponent {
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   readonly resource = input.required<Resource>();
   readonly slotStart = input.required<Date>();

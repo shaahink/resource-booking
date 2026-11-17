@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { ApiClient } from '../core/api-client';
+import { ApiService } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { NotificationItem } from '../core/models';
 
@@ -13,7 +13,7 @@ import { NotificationItem } from '../core/models';
 })
 export class ShellComponent {
   protected readonly auth = inject(AuthService);
-  private readonly api = inject(ApiClient);
+  private readonly api = inject(ApiService);
 
   protected readonly notifications = signal<NotificationItem[]>([]);
   protected readonly bellOpen = signal(false);

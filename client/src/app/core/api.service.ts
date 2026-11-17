@@ -1,7 +1,6 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { ApiClient } from './api-client';
 import {
   AssistantParseResponse,
   Availability,
@@ -18,10 +17,10 @@ import {
   User,
 } from './models';
 
-/** HTTP implementation of ApiClient. URLs are relative: the dev proxy and the
+/** The HTTP client for the API. URLs are relative: the dev proxy and the
  *  production same-origin hosting both resolve them without CORS. */
-@Injectable()
-export class ApiService extends ApiClient {
+@Injectable({ providedIn: 'root' })
+export class ApiService {
   private readonly http = inject(HttpClient);
 
   // auth
