@@ -97,7 +97,20 @@ public static class SeedData
         db.Users.AddRange(users);
         db.Resources.AddRange(resources);
 
-        // History: the trailing two working weeks, then a handful of upcoming bookings.
+        // History: the trailing two working weeks, then a handful of upcoming bookings. Each
+        // resource has its own usage profile so the dashboard has something to say: a busy
+        // boardroom, a huddle room nobody picks, a workshop that fills on Tuesday and Wednesday
+        // training days, an estate car that mostly sits in the car park, lunch peaking midweek.
+        var dailySlots = new Dictionary<string, (int Min, int Max, int MidweekExtra)>(StringComparer.Ordinal)
+        {
+            ["Boardroom"] = (3, 5, 1),
+            ["Huddle A"] = (2, 3, 2),
+            ["Huddle B"] = (0, 1, 0),
+            ["Workshop Room"] = (0, 1, 2),
+            ["Pool Car 1 (EV)"] = (1, 2, 0),
+            ["Pool Car 2 (Estate)"] = (0, 0, 1),
+        };
+
         var random = new Random(42);
         var bookings = new List<Booking>();
         var london = TimeZoneInfo.FindSystemTimeZoneById("Europe/London");
@@ -108,19 +121,25 @@ public static class SeedData
         {
             var day = today.AddDays(dayOffset);
             if (day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday) continue;
+            var midweek = day.DayOfWeek is DayOfWeek.Tuesday or DayOfWeek.Wednesday;
 
             foreach (var resource in resources)
             {
                 if (resource.Type == ResourceType.Catering)
                 {
-                    if (random.NextDouble() < 0.7)
-                        bookings.Add(MakeBooking(resource, users[random.Next(users.Count)], day, 12, 0, 90, random.Next(8, 30), london));
+                    if (random.NextDouble() < (midweek ? 0.9 : 0.6))
+                    {
+                        var portions = midweek ? random.Next(22, 37) : random.Next(6, 19);
+                        bookings.Add(MakeBooking(resource, users[random.Next(users.Count)], day, 12, 0, 90, portions, london));
+                    }
                     continue;
                 }
 
-                // Rooms busier than cars; walk forward through the day so slots never overlap.
-                var slots = resource.Type == ResourceType.Room ? random.Next(2, 5) : random.Next(0, 2);
-                var cursorHour = 8.0 + random.Next(0, 3);
+                var (min, max, midweekExtra) = dailySlots[resource.Name];
+                var slots = random.Next(min, max + 1) + (midweek ? midweekExtra : 0);
+
+                // Walk forward through the day so slots never overlap.
+                var cursorHour = 9.0 + random.Next(0, 2);
                 foreach (var _ in Enumerable.Range(0, slots))
                 {
                     var duration = durations[random.Next(durations.Length)];
