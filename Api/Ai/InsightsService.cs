@@ -93,7 +93,7 @@ public sealed class InsightsService(
 
             var digest = JsonSerializer.Deserialize<Digest>(completion.Content[0].Text, JsonOptions)
                 ?? throw new JsonException("Empty digest");
-            return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, DateTimeOffset.UtcNow);
+            return new InsightsSummaryResponse(digest.Headline, digest.Highlights, digest.Suggestion, DigestDays, DateTimeOffset.UtcNow);
         }
         catch (Exception ex)
         {

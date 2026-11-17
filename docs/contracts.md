@@ -46,7 +46,7 @@ The AI endpoints share a rate limit of 10 requests a minute per client address. 
 unknown `/api/*` route is a ProblemDetails 404, never the SPA's `index.html`.
 
 `InsightsSummaryResponse` is structured for formatting: `{ headline, highlights[],
-suggestion, generatedAt }`.
+suggestion, days, generatedAt }`, where `days` is the trailing window the digest covers.
 
 ## Error shape
 

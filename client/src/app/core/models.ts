@@ -163,6 +163,7 @@ export interface InsightsSummary {
   headline: string;
   highlights: string[];
   suggestion: string;
+  days: number;
   generatedAt: string;
 }
 

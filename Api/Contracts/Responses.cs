@@ -71,4 +71,4 @@ public record AssistantParseResponse(string Summary, IReadOnlyList<AssistantProp
 public record AssistantProposalResponse(Guid ResourceId, string ResourceName, DateTimeOffset Start, DateTimeOffset End, int Quantity);
 
 /// <summary>Structured so the UI can lay it out: one headline, short highlights, one suggested action.</summary>
-public record InsightsSummaryResponse(string Headline, IReadOnlyList<string> Highlights, string Suggestion, DateTimeOffset GeneratedAt);
+public record InsightsSummaryResponse(string Headline, IReadOnlyList<string> Highlights, string Suggestion, int Days, DateTimeOffset GeneratedAt);

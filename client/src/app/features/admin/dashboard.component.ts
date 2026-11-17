@@ -19,14 +19,20 @@ export class DashboardComponent {
   protected readonly insightsError = signal<string | null>(null);
   protected readonly resetting = signal(false);
 
+  /** Busiest first, so the rows read as a ranking. */
+  protected readonly utilisation = computed(() =>
+    [...(this.dashboard()?.utilisation ?? [])].sort((a, b) => b.utilisationPct - a.utilisationPct),
+  );
+
+  // With nothing booked there is no busiest resource or peak hour, only a dash.
   protected readonly busiest = computed(() => {
-    const rows = this.dashboard()?.utilisation ?? [];
-    return rows.length ? [...rows].sort((a, b) => b.utilisationPct - a.utilisationPct)[0] : null;
+    const top = this.utilisation()[0];
+    return top && top.utilisationPct > 0 ? top : null;
   });
 
   protected readonly peakHour = computed(() => {
-    const hours = this.dashboard()?.peakHours ?? [];
-    return hours.length ? [...hours].sort((a, b) => b.count - a.count)[0] : null;
+    const top = [...(this.dashboard()?.peakHours ?? [])].sort((a, b) => b.count - a.count)[0];
+    return top && top.count > 0 ? top : null;
   });
 
   protected readonly maxPeakCount = computed(() =>
@@ -55,11 +61,11 @@ export class DashboardComponent {
     this.insightsError.set(null);
     this.api.getInsightsSummary().subscribe({
       next: (insights) => this.insights.set(insights),
-      error: (err: { status?: number }) =>
+      error: (err: { status?: number; error?: { title?: string } }) =>
         this.insightsError.set(
           err.status === 503
             ? 'AI insights are not configured on this deployment.'
-            : 'Could not generate insights right now.',
+            : (err.error?.title ?? 'Could not generate insights right now.'),
         ),
     });
   }
