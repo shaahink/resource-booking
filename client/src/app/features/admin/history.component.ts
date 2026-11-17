@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { Booking, Resource, User } from '../../core/models';
 import { matchesQuery } from '../../core/search';
@@ -29,10 +30,11 @@ export class HistoryComponent {
     ),
   );
 
-  // filters (template-driven; '' = any)
-  protected resourceId = '';
-  protected userId = '';
-  protected from = '';
+  // filters (template-driven; '' = any). The dashboard links in with ?resourceId= / ?userId= / ?from=.
+  private readonly query = inject(ActivatedRoute).snapshot.queryParamMap;
+  protected resourceId = this.query.get('resourceId') ?? '';
+  protected userId = this.query.get('userId') ?? '';
+  protected from = this.query.get('from') ?? '';
   protected to = '';
 
   constructor() {

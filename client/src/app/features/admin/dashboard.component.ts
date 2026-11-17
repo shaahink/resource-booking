@@ -1,11 +1,12 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { Component, computed, inject, signal } from '@angular/core';
 import { ApiService } from '../../core/api.service';
 import { Dashboard, InsightsSummary } from '../../core/models';
 
 @Component({
   selector: 'app-dashboard',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, RouterLink],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
 })
@@ -34,6 +35,11 @@ export class DashboardComponent {
     const top = [...(this.dashboard()?.peakHours ?? [])].sort((a, b) => b.count - a.count)[0];
     return top && top.count > 0 ? top : null;
   });
+
+  /** yyyy-MM-dd of the range start, so a click into history keeps the same window. */
+  protected readonly rangeStart = computed(() =>
+    new Date(Date.now() - this.rangeDays() * 86_400_000).toISOString().slice(0, 10),
+  );
 
   protected readonly maxPeakCount = computed(() =>
     Math.max(1, ...(this.dashboard()?.peakHours ?? []).map((p) => p.count)),
