@@ -19,6 +19,9 @@ public sealed class ResourcesController(IResourceService resources) : Controller
     [HttpGet("{id:guid}")]
     public Task<ResourceResponse> Get(Guid id) => resources.GetAsync(id);
 
+    [HttpGet("by-slug/{slug}")]
+    public Task<ResourceResponse> GetBySlug(string slug) => resources.GetBySlugAsync(slug);
+
     [HttpGet("{id:guid}/availability")]
     public Task<AvailabilityResponse> GetAvailability(Guid id, [FromQuery] DateRangeQuery range) =>
         resources.GetAvailabilityAsync(id, range.From, range.To, User.GetUserId());

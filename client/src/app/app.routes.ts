@@ -18,7 +18,7 @@ export const routes: Routes = [
           import('./features/booking/browse.component').then((m) => m.BrowseComponent),
       },
       {
-        path: 'resources/:id',
+        path: 'resources/:slug',
         loadComponent: () =>
           import('./features/booking/resource-detail.component').then((m) => m.ResourceDetailComponent),
       },

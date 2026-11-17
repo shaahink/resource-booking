@@ -34,6 +34,11 @@ public sealed class Resource
 {
     public Guid Id { get; set; }
     public required string Name { get; set; }
+
+    /// <summary>The resource's address in URLs ("boardroom"). Set once from the name and kept on
+    /// rename, so a shared link keeps working.</summary>
+    public string Slug { get; set; } = string.Empty;
+
     public ResourceType Type { get; set; }
 
     /// <summary>Concurrent bookable units: 1 = exclusive (rooms, cars); N = pooled (catering portions).</summary>

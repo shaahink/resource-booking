@@ -138,12 +138,20 @@ namespace Api.Migrations
                     b.Property<int?>("Seats")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(140)
+                        .HasColumnType("character varying(140)");
+
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
 
                     b.ToTable("Resources");
                 });

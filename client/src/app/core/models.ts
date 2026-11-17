@@ -37,6 +37,7 @@ export interface ResourceConstraint {
 export interface Resource {
   id: string;
   name: string;
+  slug: string;
   type: ResourceType;
   capacity: number;
   seats: number | null;
@@ -74,6 +75,7 @@ export interface Booking {
   id: string;
   resourceId: string;
   resourceName: string;
+  resourceSlug: string;
   resourceType: ResourceType;
   userId: string;
   userName: string;

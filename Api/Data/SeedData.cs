@@ -92,7 +92,11 @@ public static class SeedData
             },
         };
 
-        foreach (var resource in resources) resource.CreatedOn = provisionedOn;
+        foreach (var resource in resources)
+        {
+            resource.CreatedOn = provisionedOn;
+            resource.Slug = Slugs.From(resource.Name);
+        }
 
         db.Users.AddRange(users);
         db.Resources.AddRange(resources);

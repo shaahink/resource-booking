@@ -29,6 +29,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             e.Property(r => r.Type).HasConversion<string>().HasMaxLength(16);
             e.Property(r => r.Name).HasMaxLength(120);
+            e.Property(r => r.Slug).HasMaxLength(140);
+            e.HasIndex(r => r.Slug).IsUnique();
             e.Property(r => r.Location).HasMaxLength(200);
             e.Property(r => r.Description).HasMaxLength(1000);
             e.HasMany(r => r.Constraints).WithOne().HasForeignKey(c => c.ResourceId).OnDelete(DeleteBehavior.Cascade);

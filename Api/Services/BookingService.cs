@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Api.Contracts;
 using Api.Data;
 using Api.Domain;
@@ -76,7 +77,9 @@ public sealed class BookingService(
         logger.LogInformation("Booking {BookingId} created on {ResourceId} by {UserId}",
             booking.Id, resource.Id, user.Id);
 
-        return ToResponse(booking, resource.Name, resource.Type, user.Name);
+        booking.Resource = resource;
+        booking.User = user;
+        return ToResponse(booking);
     }
 
     // In CreateAsync this runs inside the advisory lock, so the bookings read here cannot
@@ -142,9 +145,7 @@ public sealed class BookingService(
         await db.Bookings.AsNoTracking()
             .Where(b => b.UserId == userId)
             .OrderByDescending(b => b.Start)
-            .Select(b => new BookingResponse(
-                b.Id, b.ResourceId, b.Resource!.Name, b.Resource.Type,
-                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn))
+            .Select(AsResponse)
             .ToListAsync();
 
     public async Task<IReadOnlyList<BookingResponse>> GetHistoryAsync(
@@ -160,13 +161,15 @@ public sealed class BookingService(
         return await query
             .OrderByDescending(b => b.Start)
             .Take(HistoryPageSize)
-            .Select(b => new BookingResponse(
-                b.Id, b.ResourceId, b.Resource!.Name, b.Resource.Type,
-                b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn))
+            .Select(AsResponse)
             .ToListAsync();
     }
 
-    private static BookingResponse ToResponse(Booking b, string resourceName, ResourceType type, string userName) =>
-        new(b.Id, b.ResourceId, resourceName, type, b.UserId, userName,
-            b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn);
+    /// <summary>One projection for every booking the API returns; EF translates it to SQL in the
+    /// list queries.</summary>
+    private static readonly Expression<Func<Booking, BookingResponse>> AsResponse = b => new BookingResponse(
+        b.Id, b.ResourceId, b.Resource!.Name, b.Resource.Slug, b.Resource.Type,
+        b.UserId, b.User!.Name, b.Start, b.End, b.Quantity, b.Status, b.Notes, b.CreatedOn);
+
+    private static readonly Func<Booking, BookingResponse> ToResponse = AsResponse.Compile();
 }

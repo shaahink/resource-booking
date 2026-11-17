@@ -9,6 +9,7 @@ public interface IResourceService
 {
     Task<IReadOnlyList<ResourceResponse>> GetAllAsync(ResourceType? type, bool includeInactive);
     Task<ResourceResponse> GetAsync(Guid id);
+    Task<ResourceResponse> GetBySlugAsync(string slug);
     Task<AvailabilityResponse> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId);
     Task<ResourceResponse> CreateAsync(SaveResourceRequest request);
     Task<ResourceResponse> UpdateAsync(Guid id, SaveResourceRequest request);
@@ -39,6 +40,15 @@ public sealed class ResourceService(AppDbContext db) : IResourceService
         return ToResponse(resource);
     }
 
+    public async Task<ResourceResponse> GetBySlugAsync(string slug)
+    {
+        var resource = await db.Resources.AsNoTracking()
+            .Include(r => r.Constraints)
+            .FirstOrDefaultAsync(r => r.Slug == slug)
+            ?? throw new KeyNotFoundException("Resource not found.");
+        return ToResponse(resource);
+    }
+
     public async Task<AvailabilityResponse> GetAvailabilityAsync(Guid id, DateTimeOffset from, DateTimeOffset to, Guid currentUserId)
     {
         (from, to) = (from.ToUniversalTime(), to.ToUniversalTime());
@@ -61,6 +71,7 @@ public sealed class ResourceService(AppDbContext db) : IResourceService
         var resource = new Resource
         {
             Name = request.Name,
+            Slug = await UniqueSlugAsync(Slugs.From(request.Name)),
             Type = request.Type,
             Capacity = request.Capacity,
             Seats = request.Seats,
@@ -104,7 +115,23 @@ public sealed class ResourceService(AppDbContext db) : IResourceService
         return ToResponse(resource);
     }
 
+    /// <summary>Two resources called "Huddle" become huddle and huddle-2. The unique index is the
+    /// backstop; this just keeps a second resource with a familiar name from failing.</summary>
+    private async Task<string> UniqueSlugAsync(string slug)
+    {
+        var taken = await db.Resources.AsNoTracking()
+            .Where(r => r.Slug == slug || r.Slug.StartsWith(slug + "-"))
+            .Select(r => r.Slug)
+            .ToListAsync();
+
+        var candidate = slug;
+        var n = 1;
+        while (taken.Contains(candidate, StringComparer.Ordinal))
+            candidate = $"{slug}-{++n}";
+        return candidate;
+    }
+
     private static ResourceResponse ToResponse(Resource r) => new(
-        r.Id, r.Name, r.Type, r.Capacity, r.Seats, r.Location, r.Description, r.IsActive, r.CreatedOn,
+        r.Id, r.Name, r.Slug, r.Type, r.Capacity, r.Seats, r.Location, r.Description, r.IsActive, r.CreatedOn,
         r.Constraints.Select(c => new ConstraintResponse(c.Id, c.Type, c.ParamsJson)).ToList());
 }

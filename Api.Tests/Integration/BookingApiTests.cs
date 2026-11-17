@@ -86,6 +86,25 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
     }
 
     [Fact]
+    public async Task Resources_are_found_by_slug_and_a_repeated_name_is_numbered()
+    {
+        var admin = await factory.CreateClientForAsync(AdminId);
+        const string body = """{"name":"Slug Probe Room","type":"Room","capacity":1,"isActive":true,"constraints":[]}""";
+        foreach (var _ in Enumerable.Range(0, 2))
+        {
+            var created = await admin.PostAsync(new Uri("/api/admin/resources", UriKind.Relative),
+                new StringContent(body, System.Text.Encoding.UTF8, "application/json"));
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        }
+
+        var second = await admin.GetFromJsonAsync<ResourceResponse>("/api/resources/by-slug/slug-probe-room-2", Json);
+        Assert.Equal("Slug Probe Room", second!.Name);
+
+        var missing = await admin.GetAsync(new Uri("/api/resources/by-slug/no-such-room", UriKind.Relative));
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+    }
+
+    [Fact]
     public async Task Overlapping_booking_returns_409_with_violation_codes()
     {
         var tom = await factory.CreateClientForAsync(TomId);

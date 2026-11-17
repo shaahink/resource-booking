@@ -14,6 +14,7 @@ public record LoginOptionResponse(Guid Id, string Name, UserRole Role);
 public record ResourceResponse(
     Guid Id,
     string Name,
+    string Slug,
     ResourceType Type,
     int Capacity,
     int? Seats,
@@ -29,6 +30,7 @@ public record BookingResponse(
     Guid Id,
     Guid ResourceId,
     string ResourceName,
+    string ResourceSlug,
     ResourceType ResourceType,
     Guid UserId,
     string UserName,

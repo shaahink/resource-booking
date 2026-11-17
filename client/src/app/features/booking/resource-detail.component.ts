@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, map } from 'rxjs';
@@ -40,11 +40,10 @@ const DAY_END_HOUR = 21;
   templateUrl: './resource-detail.component.html',
   styleUrl: './resource-detail.component.scss',
 })
-export class ResourceDetailComponent implements OnInit {
+export class ResourceDetailComponent {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
 
-  private readonly id = this.route.snapshot.paramMap.get('id')!;
 
   protected readonly resource = signal<Resource | null>(null);
   protected readonly availability = signal<Availability | null>(null);
@@ -94,18 +93,26 @@ export class ResourceDetailComponent implements OnInit {
     }));
   });
 
-  ngOnInit(): void {
-    this.api.getResource(this.id).subscribe((resource) => this.resource.set(resource));
-    this.refetch();
+  constructor() {
+    // ?week=2026-11-24 opens the grid on that week — links from a booking land on its day.
+    const week = this.route.snapshot.queryParamMap.get('week');
+    if (week && !Number.isNaN(Date.parse(week))) this.anchor.set(new Date(week));
+
+    this.api.getResourceBySlug(this.route.snapshot.paramMap.get('slug')!).subscribe((resource) => {
+      this.resource.set(resource);
+      this.refetch();
+    });
   }
 
   protected refetch(): void {
+    const resource = this.resource();
+    if (!resource) return;
     const days = weekDays(this.anchor());
     const from = days[0];
     const to = new Date(days[6]);
     to.setDate(to.getDate() + 1);
     this.api
-      .getAvailability(this.id, from.toISOString(), to.toISOString())
+      .getAvailability(resource.id, from.toISOString(), to.toISOString())
       .subscribe((availability) => this.availability.set(availability));
   }
 

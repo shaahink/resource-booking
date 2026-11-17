@@ -42,8 +42,8 @@ export class ApiService {
     const params = type ? new HttpParams().set('type', type) : undefined;
     return this.http.get<Resource[]>('/api/resources', { params });
   }
-  getResource(id: string): Observable<Resource> {
-    return this.http.get<Resource>(`/api/resources/${id}`);
+  getResourceBySlug(slug: string): Observable<Resource> {
+    return this.http.get<Resource>(`/api/resources/by-slug/${encodeURIComponent(slug)}`);
   }
   getAvailability(resourceId: string, from: string, to: string): Observable<Availability> {
     const params = new HttpParams().set('from', from).set('to', to);

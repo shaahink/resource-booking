@@ -16,6 +16,7 @@ types in `Response`; entities carry a `createdOn` timestamp surfaced in the UI.
 | `GET /api/auth/me` | user | | `UserResponse` |
 | `GET /api/resources?type=` | user | | `ResourceResponse[]` (active only) |
 | `GET /api/resources/{id}` | user | | `ResourceResponse` |
+| `GET /api/resources/by-slug/{slug}` | user | | `ResourceResponse` · 404 unknown slug. The client routes by slug (`/resources/boardroom`) |
 | `GET /api/resources/{id}/availability?from=&to=` | user | | `AvailabilityResponse` — raw confirmed bookings in range; the client computes the grid. 400 unless the range is valid (below) |
 | `POST /api/bookings` | user | `CreateBookingRequest` | 201 `BookingResponse` · 409/422 rule problem |
 | `DELETE /api/bookings/{id}` | owner or admin | | 204; notifies the owner if an admin cancelled |
@@ -44,6 +45,10 @@ or one whose role has changed since sign-in, gets 401 and is signed out.
 
 The AI endpoints share a rate limit of 10 requests a minute per client address. An
 unknown `/api/*` route is a ProblemDetails 404, never the SPA's `index.html`.
+
+`ResourceResponse.slug` (and `BookingResponse.resourceSlug`) is the resource's URL name: made
+from the name on create ("Pool Car 1 (EV)" → `pool-car-1-ev`), numbered when taken
+(`huddle-2`), and kept on rename so shared links keep working.
 
 `InsightsSummaryResponse` is structured for formatting: `{ headline, highlights[],
 suggestion, days, generatedAt }`, where `days` is the trailing window the digest covers.
