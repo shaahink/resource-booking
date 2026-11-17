@@ -53,8 +53,13 @@ public sealed class BookingRulesService : IBookingRules
 
         if (!structurallySound) return violations;
 
+        // A time that has passed is the whole answer: no other rule can make it bookable, and an
+        // old booking in the same slot must not turn it into a 409.
         if (context.End <= context.Now || context.Start < CurrentSlotStart(context.Now))
+        {
             violations.Add(new(RuleCodes.InThePast, "This time has already passed."));
+            return violations;
+        }
 
         CheckCapacity(context, violations);
 

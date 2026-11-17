@@ -132,6 +132,16 @@ public sealed class BookingRulesTests
         Assert.Equal([RuleCodes.InThePast], Codes(result));
     }
 
+    [Fact]
+    public void Past_slot_that_was_already_booked_is_in_the_past_not_a_conflict()
+    {
+        var room = Room();
+        var start = Now.AddHours(-2);
+        var existing = Existing(room, Bob, start, start.AddHours(1));
+        var result = _rules.Validate(Context(resource: room, start: start, end: start.AddHours(1), overlapping: [existing]));
+        Assert.Equal([RuleCodes.InThePast], Codes(result));
+    }
+
     // ── overlap & capacity ──────────────────────────────────────────────
 
     [Fact]
