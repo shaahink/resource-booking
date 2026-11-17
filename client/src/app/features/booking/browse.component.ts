@@ -1,10 +1,12 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
+import { NotificationsService } from '../../core/notifications.service';
 import {
   AssistantParseResponse,
   AssistantProposal,
+  Booking,
   CreateBookingRequest,
   Resource,
   ResourceType,
@@ -21,10 +23,14 @@ import { SearchBoxComponent } from '../../shared/search-box.component';
 })
 export class BrowseComponent {
   private readonly api = inject(ApiService);
+  private readonly notifications = inject(NotificationsService);
 
   protected readonly resources = signal<Resource[]>([]);
-  protected readonly filter = signal<ResourceType | 'All'>('All');
   protected readonly filters: (ResourceType | 'All')[] = ['All', 'Room', 'Car', 'Catering'];
+  // ?type=Car opens the list already filtered — the quick actions on My bookings use it.
+  protected readonly filter = signal<ResourceType | 'All'>(
+    this.typeFrom(inject(ActivatedRoute).snapshot.queryParamMap.get('type')),
+  );
   protected readonly search = signal('');
 
   protected readonly visible = computed(() =>
@@ -41,7 +47,7 @@ export class BrowseComponent {
   protected readonly assistantResult = signal<AssistantParseResponse | null>(null);
   protected readonly assistantError = signal<string | null>(null);
   protected readonly bookingBusy = signal(false);
-  protected readonly bookedMessage = signal<string | null>(null);
+  protected readonly booked = signal<Booking | null>(null);
 
   constructor() {
     this.api.getResources().subscribe((resources) => this.resources.set(resources));
@@ -61,7 +67,7 @@ export class BrowseComponent {
     this.assistantBusy.set(true);
     this.assistantError.set(null);
     this.assistantResult.set(null);
-    this.bookedMessage.set(null);
+    this.booked.set(null);
 
     this.api.parseBookingRequest(text).subscribe({
       next: (result) => {
@@ -79,11 +85,15 @@ export class BrowseComponent {
     });
   }
 
+  private typeFrom(value: string | null): ResourceType | 'All' {
+    return this.filters.find((option) => option === value) ?? 'All';
+  }
+
   protected book(proposal: AssistantProposal): void {
     if (this.bookingBusy()) return;
     this.bookingBusy.set(true);
     this.assistantError.set(null);
-    this.bookedMessage.set(null);
+    this.booked.set(null);
 
     const request: CreateBookingRequest = {
       resourceId: proposal.resourceId,
@@ -97,15 +107,8 @@ export class BrowseComponent {
         this.bookingBusy.set(false);
         this.assistantResult.set(null);
         this.assistantText.set('');
-        this.bookedMessage.set(
-          `Booked ${booking.resourceName}, ${new Date(booking.start).toLocaleString([], {
-            weekday: 'short',
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}.`,
-        );
+        this.booked.set(booking);
+        this.notifications.load();
       },
       error: (err: unknown) => {
         this.bookingBusy.set(false);

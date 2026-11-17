@@ -23,8 +23,26 @@
   @if (assistantError()) {
     <p class="mt-3 text-sm text-rose-600">{{ assistantError() }}</p>
   }
-  @if (bookedMessage()) {
-    <p class="mt-3 text-sm font-medium text-emerald-700">✓ {{ bookedMessage() }}</p>
+  @if (booked(); as booking) {
+    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl bg-emerald-50 px-4 py-3 text-sm">
+      <span class="font-medium text-emerald-800">
+        ✓ Booked {{ booking.resourceName }}, {{ booking.start | date: 'EEE d MMM, HH:mm' }}–{{ booking.end | date: 'HH:mm' }}
+      </span>
+      <a
+        [routerLink]="['/my-bookings']"
+        [queryParams]="{ booking: booking.id }"
+        class="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-emerald-700 shadow-sm hover:bg-emerald-100"
+      >
+        View booking
+      </a>
+      <a
+        [routerLink]="['/resources', booking.resourceSlug]"
+        [queryParams]="{ week: booking.start }"
+        class="text-xs font-medium text-emerald-700 hover:underline"
+      >
+        Open in calendar
+      </a>
+    </div>
   }
   @if (assistantResult(); as result) {
     <div class="mt-3">

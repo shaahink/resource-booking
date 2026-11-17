@@ -4,6 +4,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { interval, map } from 'rxjs';
 import { ApiService } from '../../core/api.service';
+import { NotificationsService } from '../../core/notifications.service';
 import { describeConstraint } from '../../core/constraints';
 import { Availability, Booking, Resource } from '../../core/models';
 import {
@@ -43,6 +44,7 @@ const DAY_END_HOUR = 21;
 export class ResourceDetailComponent {
   private readonly api = inject(ApiService);
   private readonly route = inject(ActivatedRoute);
+  private readonly notifications = inject(NotificationsService);
 
 
   protected readonly resource = signal<Resource | null>(null);
@@ -136,6 +138,7 @@ export class ResourceDetailComponent {
   protected onBooked(booking: Booking): void {
     this.selectedSlot.set(null);
     this.refetch();
+    this.notifications.load();
     this.toast.set(
       `Booked ${new Date(booking.start).toLocaleString([], {
         weekday: 'short',

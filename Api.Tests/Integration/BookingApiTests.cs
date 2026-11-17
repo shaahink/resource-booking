@@ -325,6 +325,7 @@ public sealed class BookingApiTests(ApiFactory factory) : IClassFixture<ApiFacto
         Assert.Equal(HttpStatusCode.NoContent, cancel.StatusCode);
 
         var notifications = await maya.GetFromJsonAsync<List<NotificationResponse>>("/api/notifications", Json);
+        Assert.Contains(notifications!, n => string.Equals(n.Type, "booking_confirmed", StringComparison.Ordinal) && n.BookingId == booking.Id);
         Assert.Contains(notifications!, n => string.Equals(n.Type, "booking_cancelled", StringComparison.Ordinal) && n.BookingId == booking.Id);
 
         // And the cancelled slot no longer blocks the grid.

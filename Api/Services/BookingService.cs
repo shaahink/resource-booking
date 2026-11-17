@@ -59,6 +59,7 @@ public sealed class BookingService(
             if (violations.Count > 0) throw new BookingRejectedException(violations);
 
             db.Bookings.Add(booking);
+            db.Notifications.Add(Confirmation(booking, resource));
             try
             {
                 await db.SaveChangesAsync();
@@ -164,6 +165,17 @@ public sealed class BookingService(
             .Select(AsResponse)
             .ToListAsync();
     }
+
+    /// <summary>The owner's own record of the booking, so the bell links straight to it.</summary>
+    private static Notification Confirmation(Booking booking, Resource resource) => new()
+    {
+        UserId = booking.UserId,
+        BookingId = booking.Id,
+        Type = NotificationTypes.BookingConfirmed,
+        Message = $"Booked {resource.Name} for {BusinessTime.ToLocal(booking.Start):ddd d MMM HH:mm}–" +
+                  $"{BusinessTime.ToLocal(booking.End):HH:mm}.",
+        CreatedOn = booking.CreatedOn,
+    };
 
     /// <summary>One projection for every booking the API returns; EF translates it to SQL in the
     /// list queries.</summary>
